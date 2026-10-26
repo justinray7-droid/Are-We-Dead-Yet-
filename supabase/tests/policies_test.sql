@@ -289,6 +289,61 @@ do $$ begin
   raise notice 'PASS: final ruling recorded and amendable; dated today';
 end $$;
 
+-- Honor system (migration 0005): the app sends the chosen member in a header.
+reset role;
+grant select, insert, update, delete on all tables in schema public to anon;
+create function pg_temp.as_header(v text) returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claim.sub', '', false);
+  perform set_config('request.headers', coalesce(json_build_object('x-wager-member', v)::text, ''), false);
+end $$;
+set role anon;
+select pg_temp.as_header(null);
+do $$ begin
+  if (select count(*) from public.member_directory()) <> 3 then raise exception 'FAIL: directory'; end if;
+  if exists (select 1 from public.evidence) then raise exception 'FAIL: no identity can read evidence'; end if;
+  raise notice 'PASS: picker lists names before anyone picks; no identity reads nothing';
+end $$;
+select pg_temp.expect_error($$insert into public.comments (evidence_id, body) values ('11111111-1111-1111-1111-111111111111', 'anonymous')$$, 'comment with no identity');
+select pg_temp.as_header('not-a-uuid');
+do $$ begin
+  if public.actor_id() is not null or exists (select 1 from public.evidence) then raise exception 'FAIL: malformed header accepted'; end if;
+  raise notice 'PASS: malformed header is no identity';
+end $$;
+select pg_temp.as_header('00000000-0000-0000-0000-0000000000ff');
+do $$ begin
+  if exists (select 1 from public.evidence) then raise exception 'FAIL: non-member header reads'; end if;
+  raise notice 'PASS: a non-member id reads nothing';
+end $$;
+select pg_temp.as_header('00000000-0000-0000-0000-00000000000c');
+insert into public.comments (evidence_id, body) values ('11111111-1111-1111-1111-111111111111', 'Picked Justin from the menu');
+do $$ begin
+  if (select author from public.comments where body = 'Picked Justin from the menu') <> '00000000-0000-0000-0000-00000000000c' then
+    raise exception 'FAIL: comment author not taken from header';
+  end if;
+  if (select actor from public.audit_log order by id desc limit 1) <> '00000000-0000-0000-0000-00000000000c' then
+    raise exception 'FAIL: audit actor not taken from header';
+  end if;
+  raise notice 'PASS: header identity writes as that member and is audited';
+end $$;
+do $$ begin
+  if public.is_arbiter() or public.my_role() <> 'no' then raise exception 'FAIL: header role'; end if;
+  update public.evidence set status = 'rejected', decision_note = 'x' where id = '11111111-1111-1111-1111-111111111111';
+  if (select status from public.evidence where id = '11111111-1111-1111-1111-111111111111') <> 'approved' then
+    raise exception 'FAIL: bettor by header decided evidence';
+  end if;
+  raise notice 'PASS (blocked): picking Justin gives NO-side rights only; he cannot decide evidence';
+end $$;
+select pg_temp.as_header('00000000-0000-0000-0000-00000000000a');
+do $$ begin
+  if not public.is_arbiter() then raise exception 'FAIL: arbiter by header'; end if;
+  raise notice 'PASS: picking Shaun gives arbiter rights';
+end $$;
+reset role;
+select set_config('request.headers', '', false);
+set role authenticated;
+select pg_temp.as_user('shaun@example.com');
+
 -- Audit log: populated and append-only; no deletes.
 do $$ begin
   if (select count(*) from public.audit_log) < 10 then raise exception 'FAIL: audit log thin'; end if;

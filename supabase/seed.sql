@@ -1,5 +1,7 @@
 -- Seed data: members, config v1, definitions v1.
--- REPLACE the three email addresses below with the real ones before deploying.
+-- There is no sign-in (each person picks their name in the app), so the email
+-- addresses are placeholders and nothing is ever sent to them. Change the names
+-- here if you like; keep exactly one arbiter, one 'yes' and one 'no'.
 
 insert into public.members (email, name, role) values
   ('shaun@example.com',  'Shaun',  'arbiter'),

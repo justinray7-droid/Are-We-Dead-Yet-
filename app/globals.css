@@ -125,8 +125,6 @@ legend { font-weight: 600; padding: 0; }
 .claims { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 .unit { font-size: 1rem; font-weight: 500; }
 @media (max-width: 480px) {
-  .nav { gap: 4px 14px; font-size: 0.95rem; }
-  .nav .brand { flex-basis: 100%; }
   .headline { font-size: 3rem; }
 }
 .grid { margin: 12px 0; }
@@ -161,3 +159,53 @@ details[open] > summary { margin-bottom: 8px; }
 .key-evidence li { padding: 6px 0; }
 .audit.feed { padding: 0; margin: 0; }
 .audit.feed li { padding: 8px 0; }
+
+/* iPhone app: full screen under the notch, tab bar on phones, native-feeling taps. */
+html { -webkit-text-size-adjust: 100%; }
+body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+a, button, summary, label, select { touch-action: manipulation; }
+.nav { justify-content: flex-start; }
+.nav .brand { margin-right: 0; }
+.toplinks { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-right: auto; margin-left: 8px; }
+.nav .me { font-size: 0.9rem; white-space: nowrap; }
+.tabbar { display: none; }
+.menu { list-style: none; padding: 0 16px; }
+.menu li { display: flex; flex-direction: column; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.menu li:last-child { border-bottom: none; }
+.menu a { font-weight: 600; text-decoration: none; }
+.who { padding-top: 48px; }
+.who-choice {
+  display: flex; justify-content: space-between; align-items: center; width: 100%;
+  padding: 18px 20px; border-radius: 14px; font-size: 1.15rem; text-align: left;
+  background: var(--card); color: var(--fg); border: 1px solid var(--line);
+}
+.who-choice.current { border: 2px solid var(--accent); }
+.who-name { font-weight: 700; }
+.who-role { color: var(--muted); font-size: 0.9rem; }
+
+@media (max-width: 640px) {
+  /* iOS zooms into any field under 16px; keep them all at 16px. */
+  input, select, textarea, .filters select, .filters input { font-size: 16px; }
+  .toplinks { display: none; }
+  .nav { justify-content: space-between; padding-top: 10px; }
+  main { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+  .tabbar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    padding: 6px env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(16px); backdrop-filter: saturate(180%) blur(16px);
+    border-top: 1px solid var(--line);
+    -webkit-user-select: none; user-select: none;
+  }
+  .tabbar a {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 4px 0 6px; font-size: 0.68rem; color: var(--muted); text-decoration: none; min-height: 48px;
+  }
+  .tabbar a.on { color: var(--accent); }
+  .tab-icon { position: relative; display: inline-flex; }
+  .tab-icon .count { position: absolute; top: -4px; left: 16px; margin: 0; }
+}

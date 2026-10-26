@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, currentMemberId } from "@/lib/supabase/server";
 import type { ClaimId, Direction } from "@/lib/engine/index.ts";
 import type { SourceType } from "@/lib/evidence/form.ts";
 
@@ -58,15 +58,12 @@ function check<T>(res: { data: T | null; error: { message: string } | null }): T
   return res.data as T;
 }
 
-/** The signed-in member plus everyone's names, for "submitted by" labels. */
+/** The member this browser picked plus everyone's names, for "submitted by" labels. */
 export async function loadPeople(): Promise<{ me: (Member & { user_id: string }) | null; names: Map<string, string> }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [supabase, memberId] = await Promise.all([createClient(), currentMemberId()]);
   const members = check(await supabase.from("members").select("user_id, name, role")) as Member[];
   const names = new Map(members.filter((m) => m.user_id).map((m) => [m.user_id!, m.name]));
-  const me = members.find((m) => user && m.user_id === user.id);
+  const me = members.find((m) => memberId && m.user_id === memberId);
   return { me: me ? { ...me, user_id: me.user_id! } : null, names };
 }
 

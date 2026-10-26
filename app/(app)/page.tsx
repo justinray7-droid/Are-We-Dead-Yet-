@@ -106,7 +106,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <section className="card">
         <h2>Since October 21, 2026</h2>
         <p className="muted small">
-          Headline ({bName}) by event date. Hover or focus the chart and use the arrow keys to see what moved it.
+          Headline ({bName}) by event date. Tap or hover a marker to see what moved it.
         </p>
         <HistoryChart data={data} label={`Headline probability, ${bName} view`} />
         <ul className="legend small" aria-label="Marker key">
@@ -252,7 +252,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       </section>
 
       <p className="muted small">
-        {s.me ? `Signed in as ${s.me.name} (${s.me.role === "arbiter" ? "arbiter" : s.me.role.toUpperCase() + " side"})` : ""} ·
+        {s.me ? `Using this device as ${s.me.name} (${s.me.role === "arbiter" ? "arbiter" : s.me.role.toUpperCase() + " side"})` : ""} ·
         Config v{s.configVersion} · as of {result.asOf}
       </p>
     </main>

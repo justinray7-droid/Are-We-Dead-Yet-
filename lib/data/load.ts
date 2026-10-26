@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, currentMemberId } from "@/lib/supabase/server";
 import { recompute, todayIn, type EngineConfig, type EngineResult } from "@/lib/engine/index.ts";
 import {
   currentConfig,
@@ -21,10 +21,7 @@ export interface Snapshot {
 
 /** Loads everything the engine needs and recomputes the full chain. */
 export async function loadSnapshot(): Promise<Snapshot> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [supabase, memberId] = await Promise.all([createClient(), currentMemberId()]);
 
   const [configRes, evidenceRes, actionsRes, meRes] = await Promise.all([
     supabase.from("config_versions").select("version, config"),
@@ -32,7 +29,7 @@ export async function loadSnapshot(): Promise<Snapshot> {
       .from("evidence")
       .select("id, title, event_date, approved_at, status, is_expert_forecast, evidence_claims(claim, final_direction, final_strength, discount, dropped)"),
     supabase.from("arbiter_actions").select("kind, month, effective_on, evidence_ids, note, created_at"),
-    supabase.from("members").select("name, role").eq("user_id", user?.id ?? "").maybeSingle(),
+    supabase.from("members").select("name, role").eq("user_id", memberId ?? "").maybeSingle(),
   ]);
 
   for (const r of [configRes, evidenceRes, actionsRes]) {

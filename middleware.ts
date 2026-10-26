@@ -1,42 +1,16 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { MEMBER_COOKIE, parseMemberId } from "@/lib/identity.ts";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback"];
-
-// Refreshes the Supabase session cookie and sends signed-out visitors to /login.
-export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
-          response = NextResponse.next({ request });
-          for (const { name, value, options } of cookiesToSet) response.cookies.set(name, value, options);
-        },
-      },
-    },
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const isPublic = PUBLIC_PATHS.some((p) => request.nextUrl.pathname.startsWith(p));
-  if (!user && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-  return response;
+// Until this browser has picked a name, every page goes to the picker.
+export function middleware(request: NextRequest) {
+  if (parseMemberId(request.cookies.get(MEMBER_COOKIE)?.value)) return NextResponse.next();
+  const url = request.nextUrl.clone();
+  url.pathname = "/who";
+  url.search = "";
+  return NextResponse.redirect(url);
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Everything except the picker itself and the files an iPhone fetches to install the app.
+  matcher: ["/((?!who|_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|icons/).*)"],
 };

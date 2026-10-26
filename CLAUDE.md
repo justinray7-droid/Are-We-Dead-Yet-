@@ -4,7 +4,7 @@ The full spec is `docs/requirements-v1.1.md`. Read it before changing behavior.
 
 ## Status
 
-- **Phase 1 (foundation): done.** Schema, roles, row-level security, audit log, seed data, magic-link auth, and a status page.
+- **Phase 1 (foundation): done.** Schema, roles, row-level security, audit log, seed data, and a status page. (Magic-link auth was later replaced by the honor-system picker.)
 - **Phase 2 (engine): done.** `lib/engine/` with 31 tests covering every worked example in spec Section 3.8.
 - **Phase 3 (evidence flow): done.** Submit form (`/evidence/new`), pending/arbiter queue (`/queue`), evidence log (`/evidence`), detail page with the exact math, discussion and the arbiter review panel (`/evidence/[id]`), and edit/resubmit for the submitter (`/evidence/[id]/edit`). Migration `0002_evidence_flow.sql` adds the RPCs `submit_evidence`, `resubmit_evidence` and `review_evidence` so an item and its claim tags change in one transaction.
 - **Phase 4 (dashboard): done.** `/` shows the headline with a B-loose/B-strict toggle (`?view=strict`) and the ruling line, per-claim cards (A with a Satisfied badge, both B views, C as a separate "tracked only" card), the history chart, a countdown and the pending count. The chart (`app/(app)/HistoryChart.tsx`) is hand-drawn SVG with no chart library: a step line by event date, one marker per date that moved the headline (▲ YES, ▼ NO, hollow = added late, ◆ decay, ■ Claim A satisfied), crosshair and tooltip on hover and arrow keys, and a table view. `lib/dashboard/chart.ts` shapes engine history into chart data (pure, tested).
@@ -20,9 +20,14 @@ The full spec is `docs/requirements-v1.1.md`. Read it before changing behavior.
   - Dashboard: a verdict banner once Shaun has ruled, and a recent-activity feed ordered by app time, so late additions show at the top. A Resolution nav link appears once the ruling window opens.
   - Mobile pass: every page checked at 375px in light and dark mode.
   - Migration `0004_resolution.sql` validates the ruling.
+- **Honor system and iPhone app: done.**
+  - No sign-in. `/who` asks who is using the device and stores the member id in an httpOnly cookie for 400 days; "Switch person" is under More.
+  - The server sends that id to the database in the `x-wager-member` header. Migration `0005_honor_system.sql` makes every rule key off `actor_id()`.
+  - Home Screen install: name "AI Wager", icon, standalone display, safe-area padding.
+  - Phones get a bottom tab bar (`app/(app)/TabBar.tsx`) and a More page. Data refreshes when the app returns to the foreground.
 - **Optional v2 (spec 8.7):** AI-assisted evidence intake. Not started.
 
-The app has been installed, typechecked, built and driven end to end (submit → request changes → resubmit → approve → headline recomputes) against Postgres with RLS on.
+The app has been installed, typechecked, built and driven end to end (submit → request changes → resubmit → approve → headline recomputes) against Postgres with RLS on. It has not yet been run against a real Supabase project.
 
 ## Rules of the codebase
 
@@ -40,6 +45,7 @@ The app has been installed, typechecked, built and driven end to end (submit →
 - `npm test`: engine and data-mapping unit tests (Node's built-in runner).
 - `scripts/test-db.sh`: runs migration, seed and database rule tests against a throwaway Postgres (set PGHOST/PGPORT/PGUSER).
 - `npm run dev`, `npm run build`, `npm run typecheck`.
+- `node scripts/make-icons.mjs`: re-renders the PNG icons from `public/icons/icon.svg` (needs Playwright).
 
 ## Decisions already made (from the spec review)
 
@@ -47,7 +53,8 @@ The app has been installed, typechecked, built and driven end to end (submit →
 - Decay steps fall at month end in America/Chicago. The partial month of October 2026 gets no step; the first is 2026-11-30. With default dates that's 59 steps, ending near 36.6% for Claim A with no qualifying YES evidence.
 - Only YES evidence tagged to Claim A, at final strength 3 or higher, skips a month's decay step.
 - Evidence dated before the bet start (2026-10-21) is excluded from the chain.
-- Sign-in is email magic links via Supabase; the database rejects any email not in `members`.
+- Identity is an honor system, by the owner's choice: no logins; each person picks their name. `public.actor_id()` reads the `x-wager-member` request header (falling back to `auth.uid()`, which the SQL tests use). Use `actor_id()`, never `auth.uid()`, in new rules.
+- The Supabase URL and anon key are server-only env vars (`SUPABASE_URL`, `SUPABASE_ANON_KEY`); browsers never talk to the database. Don't add a browser Supabase client or `NEXT_PUBLIC_` keys, or anyone could call the API as anyone.
 - Priors change only through a change request approved by both bettors and the arbiter. Other config (LRs, decay) the arbiter can change directly. Definitions need all three approvals.
 - When the arbiter removes a claim tag on review, the row is kept with `dropped = true` and never reaches the engine. Tags he adds have null proposed values.
 - Event dates can't be in the future (checked in the database against the config time zone). Only the arbiter can mark an item as expert-forecast evidence.
@@ -59,3 +66,4 @@ The app has been installed, typechecked, built and driven end to end (submit →
 - Decay waivers can be revoked (`decay_waiver_revoked`); the latest waiver or revocation per month wins. Claim A can only be marked satisfied when it isn't already, must link approved evidence, and must be dated between the bet start and today; it can only be reversed while satisfied.
 - CSV exports prefix text cells that start with `=`, `+`, `-` or `@` with `'` so a spreadsheet won't run them as formulas.
 - The final ruling (`final_ruling` arbiter action) must rule met/not met on A, B-loose, B-strict and C, plus YES/NO overall. It is dated by the database (`bet_today()`) and accepted only from `ruling_opens_on()` (resolution date minus 30 days; `RULING_WINDOW_DAYS` in `lib/governance/resolution.ts` mirrors it). YES is Alex's side, NO is Justin's.
+- Phone layout rules: every form field is at least 16px (iOS zooms otherwise); content clears the tab bar and the safe-area insets; the chart scales to its container before hydration.

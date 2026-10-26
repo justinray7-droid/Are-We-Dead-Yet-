@@ -158,13 +158,16 @@ export function HistoryChart({ data, label }: { data: ChartData; label: string }
   return (
     <div className="chart" ref={wrap}>
       <svg
-        width={width}
-        height={HEIGHT}
+        // Scales to the container before the real width is measured, so a phone never sees a 640px-wide first paint.
+        viewBox={`0 0 ${width} ${HEIGHT}`}
+        width="100%"
+        style={{ height: "auto" }}
         role="img"
         aria-label={`${label} since the start of the bet. Use the arrow keys to step through the changes.`}
         tabIndex={markers.length > 0 ? 0 : undefined}
         onPointerMove={onPointerMove}
-        onPointerLeave={() => setActive(null)}
+        onPointerDown={onPointerMove}
+        onPointerLeave={(e) => e.pointerType === "mouse" && setActive(null)}
         onKeyDown={onKeyDown}
         onBlur={() => setActive(null)}
       >
