@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { loadSnapshot } from "@/lib/data/load.ts";
 import { daysBetween } from "@/lib/engine/index.ts";
 
@@ -52,7 +53,9 @@ export default async function Home() {
 
       <section className="card">
         <strong>{daysLeft.toLocaleString()}</strong> days until resolution ({s.resolutionDate}) ·{" "}
-        <strong>{s.pendingCount}</strong> pending
+        <Link href="/queue">
+          <strong>{s.pendingCount}</strong> pending
+        </Link>
       </section>
 
       <section className="card">

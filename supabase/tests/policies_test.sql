@@ -36,7 +36,7 @@ set role authenticated;
 -- Alex submits evidence with a claim tag.
 select pg_temp.as_user('alex@example.com');
 insert into public.evidence (id, title, source_url, source_type, event_date, rationale)
-values ('11111111-1111-1111-1111-111111111111', 'Lab reports autonomous discovery', 'https://example.com/a', 'news_report', '2027-01-10', 'Looks autonomous');
+values ('11111111-1111-1111-1111-111111111111', 'Lab reports autonomous discovery', 'https://example.com/a', 'news_report', '2026-10-22', 'Looks autonomous');
 insert into public.evidence_claims (evidence_id, claim, proposed_direction, proposed_strength)
 values ('11111111-1111-1111-1111-111111111111', 'A', 'YES', 4);
 select pg_temp.expect_error($$update public.evidence set status = 'approved' where id = '11111111-1111-1111-1111-111111111111'$$, 'bettor approves own item');
@@ -55,8 +55,8 @@ do $$ begin
   raise notice 'PASS (blocked): other bettor edits item -> no rows visible for update';
 end $$;
 insert into public.comments (evidence_id, body) values ('11111111-1111-1111-1111-111111111111', 'Is this really autonomous?');
-select pg_temp.expect_error($$insert into public.evidence (title, source_url, source_type, event_date, status) values ('Sneaky', 'https://x.com', 'other', '2027-01-01', 'approved')$$, 'bettor submits pre-approved item');
-select pg_temp.expect_error($$insert into public.evidence (title, source_url, source_type, event_date) values ('No source', 'not-a-url', 'other', '2027-01-01')$$, 'evidence without URL');
+select pg_temp.expect_error($$insert into public.evidence (title, source_url, source_type, event_date, status) values ('Sneaky', 'https://x.com', 'other', '2026-10-22', 'approved')$$, 'bettor submits pre-approved item');
+select pg_temp.expect_error($$insert into public.evidence (title, source_url, source_type, event_date) values ('No source', 'not-a-url', 'other', '2026-10-22')$$, 'evidence without URL');
 
 -- Shaun cannot approve without final values, then approves properly.
 select pg_temp.as_user('shaun@example.com');
@@ -140,6 +140,71 @@ select pg_temp.as_user('justin@example.com');
 insert into public.change_approvals (request_id, decision) values ('44444444-4444-4444-4444-444444444444', 'reject');
 select pg_temp.as_user('alex@example.com');
 select pg_temp.expect_error($$insert into public.change_approvals (request_id, decision) values ('44444444-4444-4444-4444-444444444444', 'approve')$$, 'approve a rejected request');
+
+-- Evidence flow (migration 0002): submit, request changes, resubmit, review.
+select pg_temp.as_user('alex@example.com');
+select public.submit_evidence('{"title": "Phase 3 item", "source_url": "https://example.com/p3", "source_type": "peer_reviewed",
+  "event_date": "2026-10-23", "rationale": "Shows autonomy",
+  "claims": [{"claim": "A", "direction": "YES", "strength": 4}, {"claim": "C", "direction": "YES", "strength": 2}]}');
+do $$ begin
+  if (select count(*) from public.evidence_claims c join public.evidence e on e.id = c.evidence_id where e.title = 'Phase 3 item') <> 2 then
+    raise exception 'FAIL: submit_evidence did not store both tags';
+  end if;
+  raise notice 'PASS: submit_evidence stores the item and its tags together';
+end $$;
+select pg_temp.expect_error($$select public.submit_evidence('{"title": "No tags", "source_url": "https://example.com", "source_type": "other", "event_date": "2026-10-22", "rationale": "x", "claims": []}')$$, 'submit without claim tags');
+do $$ begin
+  if exists (select 1 from public.evidence where title = 'No tags') then raise exception 'FAIL: untagged item left behind'; end if;
+  raise notice 'PASS: failed submission leaves nothing behind';
+end $$;
+select pg_temp.expect_error($$select public.submit_evidence('{"title": "No rationale", "source_url": "https://example.com", "source_type": "other", "event_date": "2026-10-22", "rationale": " ", "claims": [{"claim": "A", "direction": "NO", "strength": 1}]}')$$, 'submit without rationale');
+select pg_temp.expect_error($$select public.submit_evidence('{"title": "From the future", "source_url": "https://example.com", "source_type": "other", "event_date": "2099-01-01", "rationale": "x", "claims": [{"claim": "A", "direction": "NO", "strength": 1}]}')$$, 'future event date');
+select pg_temp.expect_error($$insert into public.evidence (title, source_url, source_type, event_date, is_expert_forecast) values ('Self-tagged forecast', 'https://x.com', 'other', '2026-10-22', true)$$, 'bettor tags own item as expert forecast');
+select pg_temp.expect_error($$update public.evidence set is_expert_forecast = true where title = 'Phase 3 item'$$, 'bettor flags pending item as expert forecast');
+select pg_temp.expect_error($$insert into public.evidence_claims (evidence_id, claim, proposed_direction, proposed_strength, dropped) select id, 'B_LOOSE', 'YES', 1, true from public.evidence where title = 'Phase 3 item'$$, 'bettor marks a tag dropped');
+select pg_temp.expect_error($$select public.review_evidence((select id from public.evidence where title = 'Phase 3 item'), 'approved', 'self-approval', '[{"claim": "A", "direction": "YES", "strength": 5}]')$$, 'bettor calls review_evidence');
+
+select pg_temp.as_user('justin@example.com');
+select pg_temp.expect_error($$select public.resubmit_evidence((select id from public.evidence where title = 'Phase 3 item'), '{"title": "Hijacked", "source_url": "https://x.com", "source_type": "other", "event_date": "2026-10-22", "rationale": "x", "claims": [{"claim": "A", "direction": "NO", "strength": 5}]}')$$, 'other bettor resubmits item');
+
+select pg_temp.as_user('shaun@example.com');
+select pg_temp.expect_error($$select public.review_evidence((select id from public.evidence where title = 'Phase 3 item'), 'needs_changes', '  ')$$, 'request changes without a note');
+select public.review_evidence((select id from public.evidence where title = 'Phase 3 item'), 'needs_changes', 'Link the paper, not the press release');
+
+select pg_temp.as_user('alex@example.com');
+select public.resubmit_evidence((select id from public.evidence where title = 'Phase 3 item'),
+  '{"title": "Phase 3 item", "source_url": "https://example.com/paper", "source_type": "peer_reviewed", "event_date": "2026-10-23",
+    "rationale": "Paper linked", "claims": [{"claim": "A", "direction": "YES", "strength": 4}, {"claim": "C", "direction": "YES", "strength": 3}]}');
+do $$ begin
+  if (select status from public.evidence where title = 'Phase 3 item') <> 'pending' then raise exception 'FAIL: resubmission not pending'; end if;
+  if (select proposed_strength from public.evidence_claims c join public.evidence e on e.id = c.evidence_id where e.title = 'Phase 3 item' and claim = 'C') <> 3 then
+    raise exception 'FAIL: resubmitted tags not replaced';
+  end if;
+  raise notice 'PASS: resubmission returns the item to pending with new tags';
+end $$;
+
+select pg_temp.as_user('shaun@example.com');
+select pg_temp.expect_error($$select public.review_evidence((select id from public.evidence where title = 'Phase 3 item'), 'approved', '', '[]')$$, 'approve with every tag removed');
+select pg_temp.expect_error($$select public.review_evidence((select id from public.evidence where title = 'Phase 3 item'), 'rejected', '')$$, 'reject without a reason');
+select public.review_evidence(
+  (select id from public.evidence where title = 'Phase 3 item'), 'approved', 'Strong but single lab',
+  '[{"claim": "A", "direction": "YES", "strength": 3, "discount": 0.5}, {"claim": "B_LOOSE", "direction": "YES", "strength": 2}]',
+  true, array['11111111-1111-1111-1111-111111111111']::uuid[]);
+do $$
+declare ev public.evidence := (select e from public.evidence e where title = 'Phase 3 item');
+begin
+  if ev.status <> 'approved' or ev.approved_at is null or not ev.is_expert_forecast then raise exception 'FAIL: approval fields'; end if;
+  if (select dropped from public.evidence_claims where evidence_id = ev.id and claim = 'C') is not true then
+    raise exception 'FAIL: untagged claim should be kept as dropped';
+  end if;
+  if (select proposed_direction from public.evidence_claims where evidence_id = ev.id and claim = 'B_LOOSE') is not null
+     or (select final_strength from public.evidence_claims where evidence_id = ev.id and claim = 'B_LOOSE') <> 2 then
+    raise exception 'FAIL: arbiter-added tag';
+  end if;
+  if (select discount from public.evidence_claims where evidence_id = ev.id and claim = 'A') <> 0.5 then raise exception 'FAIL: discount'; end if;
+  if not exists (select 1 from public.evidence_links where evidence_id = ev.id) then raise exception 'FAIL: link not stored'; end if;
+  raise notice 'PASS: approval sets finals, keeps dropped tags, stores links and the forecast flag';
+end $$;
 
 -- Audit log: populated and append-only; no deletes.
 do $$ begin

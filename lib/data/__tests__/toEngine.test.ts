@@ -19,12 +19,12 @@ test("Only approved evidence reaches the engine, with numeric discounts", () => 
     {
       id: "a", title: "Approved", event_date: "2027-01-10", approved_at: "2027-03-01T04:00:00Z",
       status: "approved", is_expert_forecast: false,
-      evidence_claims: [{ claim: "A", final_direction: "YES", final_strength: 3, discount: "0.8" }],
+      evidence_claims: [{ claim: "A", final_direction: "YES", final_strength: 3, discount: "0.8", dropped: false }],
     },
     {
       id: "p", title: "Pending", event_date: "2027-01-11", approved_at: null,
       status: "pending", is_expert_forecast: false,
-      evidence_claims: [{ claim: "A", final_direction: null, final_strength: null, discount: 1 }],
+      evidence_claims: [{ claim: "A", final_direction: null, final_strength: null, discount: 1, dropped: false }],
     },
   ];
   const inputs = toEvidenceInputs(rows, "America/Chicago");
@@ -34,6 +34,24 @@ test("Only approved evidence reaches the engine, with numeric discounts", () => 
   assert.equal(inputs[0].approvedDate, "2027-02-28");
   const r = recompute(DEFAULT_CONFIG, inputs, { decayWaivers: [], claimASatisfied: null }, "2027-02-01");
   assert.equal(r.steps.find((s) => s.id === "decay:2027-01")!.status, "skipped");
+});
+
+test("Tags the arbiter dropped never reach the engine", () => {
+  const rows: EvidenceRow[] = [
+    {
+      id: "d", title: "Partly dropped", event_date: "2026-11-02", approved_at: "2026-11-03T18:00:00Z",
+      status: "approved", is_expert_forecast: false,
+      evidence_claims: [
+        { claim: "A", final_direction: "NO", final_strength: 2, discount: 1, dropped: false },
+        // Proposed by the bettor, removed on review: no final values.
+        { claim: "C", final_direction: null, final_strength: null, discount: 1, dropped: true },
+      ],
+    },
+  ];
+  const inputs = toEvidenceInputs(rows, "America/Chicago");
+  assert.deepEqual(inputs[0].tags.map((t) => t.claim), ["A"]);
+  const r = recompute(DEFAULT_CONFIG, inputs, { decayWaivers: [], claimASatisfied: null }, "2026-11-15");
+  assert.equal(r.probabilities.C, DEFAULT_CONFIG.priors.C);
 });
 
 test("Latest satisfied/unsatisfied action wins; waivers collected", () => {

@@ -28,6 +28,8 @@ export interface EvidenceRow {
     final_direction: Direction | null;
     final_strength: number | null;
     discount: number | string;
+    /** Removed by the arbiter; kept for the record, never applied. */
+    dropped: boolean;
   }[];
 }
 
@@ -50,7 +52,7 @@ export function currentConfig(rows: ConfigRow[]): { config: EngineConfig; timeZo
   return { config, timeZone: timeZone ?? DEFAULT_TIME_ZONE, version: latest.version };
 }
 
-/** Approved evidence only, with the arbiter's final values. */
+/** Approved evidence only, with the arbiter's final values on tags he kept. */
 export function toEvidenceInputs(rows: EvidenceRow[], timeZone: string): EvidenceInput[] {
   return rows
     .filter((r) => r.status === "approved")
@@ -60,7 +62,7 @@ export function toEvidenceInputs(rows: EvidenceRow[], timeZone: string): Evidenc
       eventDate: r.event_date,
       approvedDate: r.approved_at ? todayIn(timeZone, new Date(r.approved_at)) : undefined,
       isExpertForecast: r.is_expert_forecast,
-      tags: r.evidence_claims.map((c) => {
+      tags: r.evidence_claims.filter((c) => !c.dropped).map((c) => {
         if (c.final_direction === null || c.final_strength === null) {
           throw new Error(`Approved evidence ${r.id} is missing final values for ${c.claim}`);
         }

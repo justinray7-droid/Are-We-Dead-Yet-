@@ -8,6 +8,6 @@ createdb "$DB"
 trap 'dropdb --if-exists "$DB"' EXIT
 run() { psql -q -v ON_ERROR_STOP=1 -d "$DB" -f "$1"; }
 run supabase/tests/supabase_shim.sql
-run supabase/migrations/0001_init.sql
+for f in supabase/migrations/*.sql; do run "$f"; done
 run supabase/seed.sql
 run supabase/tests/policies_test.sql

@@ -29,7 +29,7 @@ export async function loadSnapshot(): Promise<Snapshot> {
     supabase.from("config_versions").select("version, config"),
     supabase
       .from("evidence")
-      .select("id, title, event_date, approved_at, status, is_expert_forecast, evidence_claims(claim, final_direction, final_strength, discount)"),
+      .select("id, title, event_date, approved_at, status, is_expert_forecast, evidence_claims(claim, final_direction, final_strength, discount, dropped)"),
     supabase.from("arbiter_actions").select("kind, month, effective_on, evidence_ids, note, created_at"),
     supabase.from("members").select("name, role").eq("user_id", user?.id ?? "").maybeSingle(),
   ]);
