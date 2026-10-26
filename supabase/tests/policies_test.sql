@@ -263,6 +263,32 @@ do $$ begin
   raise notice 'PASS: satisfied state follows the latest mark';
 end $$;
 
+-- Final ruling (migration 0004): opens 30 days before resolution, covers every claim.
+select pg_temp.as_user('shaun@example.com');
+select pg_temp.expect_error($$insert into public.arbiter_actions (kind, note, payload) values ('final_ruling', 'early', '{"A": "met", "B_LOOSE": "met", "B_STRICT": "not_met", "C": "met", "overall": "YES"}')$$, 'final ruling years early');
+-- Move resolution to 10 days from now (as the owner, standing in for an approved request).
+reset role;
+insert into public.config_versions (version, config, note, request_id)
+select version + 1, jsonb_set(config, '{resolutionDate}', to_jsonb(to_char(public.bet_today() + 10, 'YYYY-MM-DD'))), 'Test: resolution near', gen_random_uuid()
+from public.config_versions order by version desc limit 1;
+set role authenticated;
+select pg_temp.as_user('alex@example.com');
+select pg_temp.expect_error($$insert into public.arbiter_actions (kind, note, payload) values ('final_ruling', 'I win', '{"A": "met", "B_LOOSE": "met", "B_STRICT": "met", "C": "met", "overall": "YES"}')$$, 'bettor records the final ruling');
+select pg_temp.as_user('shaun@example.com');
+select pg_temp.expect_error($$insert into public.arbiter_actions (kind, note, payload) values ('final_ruling', 'x', '{"A": "met", "B_LOOSE": "met", "overall": "YES"}')$$, 'ruling that skips claims');
+select pg_temp.expect_error($$insert into public.arbiter_actions (kind, note, payload) values ('final_ruling', 'x', '{"A": "met", "B_LOOSE": "met", "B_STRICT": "met", "C": "met", "overall": "MAYBE"}')$$, 'ruling without a YES/NO verdict');
+insert into public.arbiter_actions (kind, note, payload, effective_on)
+values ('final_ruling', 'Autonomous labs are real; results still explainable', '{"A": "met", "B_LOOSE": "not_met", "B_STRICT": "not_met", "C": "met", "overall": "NO"}', '2000-01-01');
+insert into public.arbiter_actions (kind, note, payload)
+values ('final_ruling', 'Amended after AlphaProof review', '{"A": "met", "B_LOOSE": "met", "B_STRICT": "not_met", "C": "met", "overall": "YES"}');
+do $$ begin
+  if (select count(*) from public.arbiter_actions where kind = 'final_ruling') <> 2 then raise exception 'FAIL: rulings not recorded'; end if;
+  if exists (select 1 from public.arbiter_actions where kind = 'final_ruling' and effective_on <> public.bet_today()) then
+    raise exception 'FAIL: ruling date not set to today';
+  end if;
+  raise notice 'PASS: final ruling recorded and amendable; dated today';
+end $$;
+
 -- Audit log: populated and append-only; no deletes.
 do $$ begin
   if (select count(*) from public.audit_log) < 10 then raise exception 'FAIL: audit log thin'; end if;

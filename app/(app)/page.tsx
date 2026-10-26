@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { loadSnapshot } from "@/lib/data/load.ts";
+import { loadPeople } from "@/lib/data/evidence.ts";
+import { loadArbiterActions, loadAudit, loadEvidenceTitles } from "@/lib/data/governance.ts";
+import { describeAudit } from "@/lib/audit/describe.ts";
+import { rulingOpensOn, rulings } from "@/lib/governance/resolution.ts";
+import { formatDateTime } from "@/lib/evidence/labels.ts";
 import { chartData, countdown, pointsChange, type View } from "@/lib/dashboard/chart.ts";
 import { pct } from "@/lib/evidence/labels.ts";
 import { HistoryChart, MarkerShape } from "./HistoryChart.tsx";
@@ -45,7 +50,13 @@ function ClaimCard({
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
   const { view: rawView } = await searchParams;
   const view: View = rawView === "strict" ? "strict" : "loose";
-  const s = await loadSnapshot();
+  const [s, { rows: auditRows }, titles, actions, { names }] = await Promise.all([
+    loadSnapshot(),
+    loadAudit(),
+    loadEvidenceTitles(),
+    loadArbiterActions(),
+    loadPeople(),
+  ]);
   const { result, config } = s;
   const p = result.probabilities;
   const bClaim = view === "loose" ? "B_LOOSE" : "B_STRICT";
@@ -53,9 +64,23 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const priorHeadline = config.priors.A * config.priors[bClaim];
   const data = chartData(result, view, config.startDate);
   const left = countdown(result.asOf, s.resolutionDate);
+  const ruling = rulings(actions)[0];
+  const rulingOpen = result.asOf >= rulingOpensOn(s.resolutionDate);
+  // Ordered by when things happened in the app, so late additions show up at the top.
+  const activity = auditRows
+    .map((r) => ({ r, line: describeAudit(r, titles, config.backdateFlagDays) }))
+    .filter(({ line }) => line.category !== "tags")
+    .slice(0, 8);
 
   return (
     <main>
+      {ruling && (
+        <Link href="/resolution" className="card card-link verdict-banner">
+          <div className="muted small">Final ruling · {ruling.date}</div>
+          <div className="big">The bet resolves {ruling.payload.overall}</div>
+          <div className="small">Shaun has ruled. See the ruling on each claim →</div>
+        </Link>
+      )}
       <section className="card hero">
         <div className="row spread">
           <div className="muted">Chance the bet resolves YES</div>
@@ -115,12 +140,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                     <tr key={m.date}>
                       <td>{m.date}</td>
                       <td>
-                        {m.steps.map((st) => (
-                          <div key={`${st.id}-${st.claim}`}>
-                            {st.kind === "evidence" ? <Link href={`/evidence/${st.id}`}>{st.label}</Link> : st.label}
-                            {st.backdated && st.approvedDate ? ` (added late, approved ${st.approvedDate})` : ""}
-                          </div>
-                        ))}
+                        {/* One line per item, even when it moved both A and B. */}
+                        {m.steps
+                          .filter((st, i) => m.steps.findIndex((x) => x.id === st.id) === i)
+                          .map((st) => (
+                            <div key={st.id}>
+                              {st.kind === "evidence" ? <Link href={`/evidence/${st.id}`}>{st.label}</Link> : st.label}
+                              {st.backdated && st.approvedDate ? ` (added late, approved ${st.approvedDate})` : ""}
+                            </div>
+                          ))}
                       </td>
                       <td>
                         {pct(m.before)} → {pct(m.after)}
@@ -186,12 +214,41 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <div className="muted small">
             {left.reached ? "Waiting on Shaun's final ruling" : left.approx} · {s.resolutionDate}
           </div>
+          {(rulingOpen || ruling) && (
+            <Link href="/resolution" className="small">
+              Resolution mode →
+            </Link>
+          )}
         </div>
         <Link href="/queue" className="card card-link">
           <div className="muted small">Pending review</div>
           <div className="big">{s.pendingCount}</div>
           <div className="muted small">Open the queue →</div>
         </Link>
+      </section>
+
+      <section className="card">
+        <div className="row spread">
+          <h2>Recent activity</h2>
+          <Link href="/audit" className="small">
+            Full audit log →
+          </Link>
+        </div>
+        {activity.length === 0 ? (
+          <p className="muted">Nothing yet.</p>
+        ) : (
+          <ol className="audit feed">
+            {activity.map(({ r, line }) => (
+              <li key={r.id}>
+                <div>
+                  <strong>{r.actor ? (names.get(r.actor) ?? "Unknown member") : "System"}</strong>{" "}
+                  {line.href ? <Link href={line.href}>{line.text}</Link> : line.text}
+                </div>
+                <div className="muted small">{formatDateTime(r.at, s.timeZone)}</div>
+              </li>
+            ))}
+          </ol>
+        )}
       </section>
 
       <p className="muted small">

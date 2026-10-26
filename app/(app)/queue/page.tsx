@@ -131,7 +131,8 @@ export default async function QueuePage() {
             )}
           </div>
         ))}
-        {isArbiter && (
+        {isArbiter && months.length === 0 && <p className="muted small">No decay steps fall before the resolution date.</p>}
+        {isArbiter && months.length > 0 && (
           <details>
             <summary>Waive a month&apos;s decay step</summary>
             <ActionForm action={waiveDecay} buttons={[{ label: "Waive" }]}>

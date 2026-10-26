@@ -15,7 +15,12 @@ The full spec is `docs/requirements-v1.1.md`. Read it before changing behavior.
   - `/evidence`: now the full Evidence Log, with decay steps as system entries and filters for type, status, claim, direction, strength, submitter and date.
   - `/export/{wager-export.json,evidence.csv,history.csv}`: one-click exports.
   - Migration `0003_governance.sql` holds the rules.
-- **Next: Phase 6 (polish).** Mobile layout pass, activity feed, resolution mode (Shaun's final ruling).
+- **Phase 6 (polish): done.**
+  - `/resolution`: final probabilities, the evidence that moved Claims A and B most, and Shaun's ruling form. The form opens 30 days before the resolution date. Rulings can be amended; the latest stands and earlier ones are kept.
+  - Dashboard: a verdict banner once Shaun has ruled, and a recent-activity feed ordered by app time, so late additions show at the top. A Resolution nav link appears once the ruling window opens.
+  - Mobile pass: every page checked at 375px in light and dark mode.
+  - Migration `0004_resolution.sql` validates the ruling.
+- **Optional v2 (spec 8.7):** AI-assisted evidence intake. Not started.
 
 The app has been installed, typechecked, built and driven end to end (submit → request changes → resubmit → approve → headline recomputes) against Postgres with RLS on.
 
@@ -53,3 +58,4 @@ The app has been installed, typechecked, built and driven end to end (submit →
 - A change request is opened with `propose_change`, which records the proposer's approval in the same transaction. Any rejection closes it.
 - Decay waivers can be revoked (`decay_waiver_revoked`); the latest waiver or revocation per month wins. Claim A can only be marked satisfied when it isn't already, must link approved evidence, and must be dated between the bet start and today; it can only be reversed while satisfied.
 - CSV exports prefix text cells that start with `=`, `+`, `-` or `@` with `'` so a spreadsheet won't run them as formulas.
+- The final ruling (`final_ruling` arbiter action) must rule met/not met on A, B-loose, B-strict and C, plus YES/NO overall. It is dated by the database (`bet_today()`) and accepted only from `ruling_opens_on()` (resolution date minus 30 days; `RULING_WINDOW_DAYS` in `lib/governance/resolution.ts` mirrors it). YES is Alex's side, NO is Justin's.

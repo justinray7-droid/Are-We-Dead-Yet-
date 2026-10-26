@@ -92,6 +92,7 @@ export interface ArbiterAction {
   effective_on: string | null;
   evidence_ids: string[];
   note: string;
+  payload: unknown;
   actor: string;
   created_at: string;
 }
@@ -101,7 +102,7 @@ export async function loadArbiterActions(): Promise<ArbiterAction[]> {
   return check<ArbiterAction[]>(
     await supabase
       .from("arbiter_actions")
-      .select("id, kind, month, effective_on, evidence_ids, note, actor, created_at")
+      .select("id, kind, month, effective_on, evidence_ids, note, payload, actor, created_at")
       .order("created_at", { ascending: false }),
   );
 }

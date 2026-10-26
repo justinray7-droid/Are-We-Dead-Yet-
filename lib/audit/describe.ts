@@ -42,7 +42,18 @@ const STATUS_VERB: Record<string, string> = {
 const str = (v: unknown) => (typeof v === "string" ? v : v === null || v === undefined ? "" : String(v));
 const excerpt = (s: string, n = 140) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
-export function describeAudit(row: AuditRow, titles: Map<string, string>): AuditLine {
+const dayMs = 86_400_000;
+
+/** " (happened 2027-01-20)", plus "added late" when approved long after the event. */
+function happened(n: Record<string, unknown>, backdateDays: number): string {
+  const ev = str(n.event_date);
+  if (!ev) return "";
+  const approved = str(n.approved_at);
+  const late = approved && Date.parse(approved) - Date.parse(ev + "T00:00:00Z") > (backdateDays + 1) * dayMs;
+  return ` (happened ${ev}${late ? ", added late" : ""})`;
+}
+
+export function describeAudit(row: AuditRow, titles: Map<string, string>, backdateDays = 30): AuditLine {
   const n = row.details.new ?? {};
   const o = row.details.old ?? {};
   const rec = row.action === "delete" ? o : n;
@@ -52,11 +63,11 @@ export function describeAudit(row: AuditRow, titles: Map<string, string>): Audit
 
   switch (row.entity) {
     case "evidence": {
-      if (row.action === "insert") return { category: "evidence", text: `submitted ${title}`, href: evHref };
+      if (row.action === "insert") return { category: "evidence", text: `submitted ${title}${happened(n, backdateDays)}`, href: evHref };
       if (n.status !== o.status) {
         return {
           category: "review",
-          text: `${STATUS_VERB[str(n.status)] ?? `set status ${str(n.status)} on`} ${title}`,
+          text: `${STATUS_VERB[str(n.status)] ?? `set status ${str(n.status)} on`} ${title}${n.status === "approved" ? happened(n, backdateDays) : ""}`,
           detail: str(n.decision_note) || undefined,
           href: evHref,
         };
@@ -112,8 +123,12 @@ export function describeAudit(row: AuditRow, titles: Map<string, string>): Audit
           return { category: "arbiter", text: `marked Claim A satisfied from ${str(n.effective_on)}`, detail: note, href: "/queue" };
         case "claim_a_unsatisfied":
           return { category: "arbiter", text: "reversed the Claim A satisfied mark", detail: note, href: "/queue" };
+        case "final_ruling": {
+          const overall = (n.payload as { overall?: string } | undefined)?.overall;
+          return { category: "arbiter", text: `recorded the final ruling: the bet resolves ${overall ?? "?"}`, detail: note, href: "/resolution" };
+        }
         default:
-          return { category: "arbiter", text: "recorded the final ruling", detail: note };
+          return { category: "arbiter", text: `recorded ${str(n.kind)}`, detail: note };
       }
     }
     case "config_versions":

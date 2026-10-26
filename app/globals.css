@@ -125,6 +125,7 @@ legend { font-weight: 600; padding: 0; }
 .claims { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 .unit { font-size: 1rem; font-weight: 500; }
 @media (max-width: 480px) {
+  .nav { gap: 4px 14px; font-size: 0.95rem; }
   .nav .brand { flex-basis: 100%; }
   .headline { font-size: 3rem; }
 }
@@ -151,3 +152,12 @@ details[open] > summary { margin-bottom: 8px; }
 .audit li:last-child { border-bottom: none; }
 .audit .detail { white-space: pre-wrap; margin-top: 2px; }
 .stack > p, .stack > ul { margin: 0; }
+
+/* Phase 6: resolution and activity. */
+.verdict .headline { margin: 4px 0; }
+.verdict-banner { border-color: var(--fg); }
+.rulings { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 6px; }
+.key-evidence { padding-left: 20px; margin: 0; }
+.key-evidence li { padding: 6px 0; }
+.audit.feed { padding: 0; margin: 0; }
+.audit.feed li { padding: 8px 0; }
