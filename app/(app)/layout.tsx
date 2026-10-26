@@ -19,6 +19,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {counts.pending > 0 && <span className="count">{counts.pending}</span>}
         </Link>
         {me && me.role !== "arbiter" && <Link href="/evidence/new">Submit</Link>}
+        <Link href="/rules">Rules</Link>
+        <Link href="/audit">Audit</Link>
       </nav>
       {children}
     </>

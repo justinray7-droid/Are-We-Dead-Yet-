@@ -34,7 +34,7 @@ export interface EvidenceRow {
 }
 
 export interface ArbiterActionRow {
-  kind: "decay_waiver" | "claim_a_satisfied" | "claim_a_unsatisfied" | "final_ruling";
+  kind: "decay_waiver" | "decay_waiver_revoked" | "claim_a_satisfied" | "claim_a_unsatisfied" | "final_ruling";
   month: string | null;
   effective_on: string | null;
   evidence_ids: string[];
@@ -77,7 +77,7 @@ export function toEvidenceInputs(rows: EvidenceRow[], timeZone: string): Evidenc
 }
 
 /**
- * Waivers: every decay_waiver row (latest note wins per month).
+ * Waivers: the latest waiver or revocation per month decides (latest note wins).
  * Satisfied: whichever of satisfied/unsatisfied was recorded last.
  */
 export function toArbiterState(rows: ArbiterActionRow[]): ArbiterState {
@@ -86,6 +86,7 @@ export function toArbiterState(rows: ArbiterActionRow[]): ArbiterState {
   let satisfied: ArbiterState["claimASatisfied"] = null;
   for (const r of sorted) {
     if (r.kind === "decay_waiver" && r.month) waivers.set(r.month, r.note);
+    if (r.kind === "decay_waiver_revoked" && r.month) waivers.delete(r.month);
     if (r.kind === "claim_a_satisfied" && r.effective_on) {
       satisfied = { date: r.effective_on, evidenceIds: r.evidence_ids, note: r.note };
     }

@@ -130,3 +130,24 @@ legend { font-weight: 600; padding: 0; }
 }
 .grid { margin: 12px 0; }
 .grid > .card { margin: 0; }
+
+/* Phase 5: governance. */
+h3 { font-size: 0.95rem; margin: 12px 0 4px; }
+button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+.errors { margin: 0; padding-left: 18px; color: var(--no); }
+.ok { margin: 0; color: var(--yes); }
+.notice { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); }
+.diff { border-left: 3px solid var(--line); padding-left: 10px; }
+.diff .proposed { white-space: pre-wrap; }
+.approvals { list-style: none; padding: 0; margin: 0; }
+details > summary { cursor: pointer; }
+details[open] > summary { margin-bottom: 8px; }
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; }
+.filters label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+.filters select, .filters input { width: 100%; color: var(--fg); }
+.decay-row { background: transparent; border-style: dashed; }
+.audit { list-style: none; padding: 0 16px; }
+.audit li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.audit li:last-child { border-bottom: none; }
+.audit .detail { white-space: pre-wrap; margin-top: 2px; }
+.stack > p, .stack > ul { margin: 0; }

@@ -75,7 +75,7 @@ select pg_temp.as_user('shaun@example.com');
 insert into public.arbiter_actions (kind, month, note) values ('decay_waiver', '2027-02', 'Conference month, lots pending');
 select pg_temp.expect_error($$insert into public.arbiter_actions (kind, effective_on, note) values ('claim_a_satisfied', '2027-03-01', 'no evidence linked')$$, 'satisfied without evidence');
 insert into public.arbiter_actions (kind, effective_on, evidence_ids, note)
-values ('claim_a_satisfied', '2027-03-01', array['11111111-1111-1111-1111-111111111111']::uuid[], 'Meets Claim A');
+values ('claim_a_satisfied', '2026-10-25', array['11111111-1111-1111-1111-111111111111']::uuid[], 'Meets Claim A');
 do $$ begin
   update public.arbiter_actions set note = 'changed';
   if exists (select 1 from public.arbiter_actions where note = 'changed') then raise exception 'FAIL: arbiter action edited'; end if;
@@ -135,7 +135,7 @@ do $$ begin
 end $$;
 
 insert into public.change_requests (id, kind, proposed, rationale)
-values ('44444444-4444-4444-4444-444444444444', 'definitions', '{"change_log": "x", "definitions": {}}', 'Test reject');
+values ('44444444-4444-4444-4444-444444444444', 'definitions', '{"change_log": "x", "definitions": {"claim_c": {"body": "Changed"}}}', 'Test reject');
 select pg_temp.as_user('justin@example.com');
 insert into public.change_approvals (request_id, decision) values ('44444444-4444-4444-4444-444444444444', 'reject');
 select pg_temp.as_user('alex@example.com');
@@ -204,6 +204,63 @@ begin
   if (select discount from public.evidence_claims where evidence_id = ev.id and claim = 'A') <> 0.5 then raise exception 'FAIL: discount'; end if;
   if not exists (select 1 from public.evidence_links where evidence_id = ev.id) then raise exception 'FAIL: link not stored'; end if;
   raise notice 'PASS: approval sets finals, keeps dropped tags, stores links and the forecast flag';
+end $$;
+
+-- Governance (migration 0003).
+-- Change requests open with the requester's approval and are validated.
+select pg_temp.as_user('alex@example.com');
+select public.propose_change('priors', '{"priors": {"C": 0.45}, "note": "Recalibrate C"}', 'New benchmark results');
+do $$ begin
+  if (select count(*) from public.change_approvals a join public.change_requests r on r.id = a.request_id
+      where r.rationale = 'New benchmark results') <> 1 then
+    raise exception 'FAIL: requester approval not recorded';
+  end if;
+  raise notice 'PASS: propose_change records the requester''s approval';
+end $$;
+select pg_temp.expect_error($$select public.propose_change('priors', '{"priors": {"A": 1.2}}', 'x')$$, 'prior outside 0..1');
+select pg_temp.expect_error($$select public.propose_change('priors', '{"priors": {"D": 0.5}}', 'x')$$, 'prior for an unknown claim');
+select pg_temp.expect_error($$select public.propose_change('priors', '{"priors": {"A": 0.5}}', '  ')$$, 'change request without rationale');
+select pg_temp.expect_error($$select public.propose_change('definitions', '{"change_log": "x", "definitions": {"claim_z": {"body": "y"}}}', 'x')$$, 'unknown definition key');
+select pg_temp.expect_error($$select public.propose_change('definitions', '{"change_log": "", "definitions": {"claim_a": {"body": "y"}}}', 'x')$$, 'definition change without change log');
+do $$ begin
+  if exists (select 1 from public.change_requests where rationale = 'x') then raise exception 'FAIL: invalid request left behind'; end if;
+  raise notice 'PASS: invalid proposals leave nothing behind';
+end $$;
+
+-- Config: validated, terms locked, note required.
+select pg_temp.as_user('shaun@example.com');
+select pg_temp.expect_error($$insert into public.config_versions (version, config, note) select version + 1, jsonb_set(config, '{strengthLR,2}', '0.5'), 'bad' from public.config_versions order by version desc limit 1$$, 'strength LR below 1');
+select pg_temp.expect_error($$insert into public.config_versions (version, config, note) select version + 1, jsonb_set(config, '{decay,skipThreshold}', '7'), 'bad' from public.config_versions order by version desc limit 1$$, 'skip threshold outside 1..5');
+select pg_temp.expect_error($$insert into public.config_versions (version, config, note) select version + 1, jsonb_set(config, '{resolutionDate}', '"2035-01-01"'), 'extend' from public.config_versions order by version desc limit 1$$, 'arbiter moves the resolution date');
+select pg_temp.expect_error($$insert into public.config_versions (version, config, note) select version + 1, jsonb_set(config, '{decay,lr}', '1.01'), ' ' from public.config_versions order by version desc limit 1$$, 'config change without a note');
+insert into public.config_versions (version, config, note)
+select version + 1, jsonb_set(config, '{caps,perItemLR}', '4'), 'Cap single items at LR 4' from public.config_versions order by version desc limit 1;
+do $$ begin
+  if (select created_by from public.config_versions order by version desc limit 1) <> '00000000-0000-0000-0000-00000000000a' then
+    raise exception 'FAIL: config author not recorded';
+  end if;
+  raise notice 'PASS: valid recalibration accepted and attributed';
+end $$;
+
+-- Waivers: in range, revocable once.
+select pg_temp.expect_error($$insert into public.arbiter_actions (kind, month, note) values ('decay_waiver', '2026-10', 'partial month')$$, 'waive a month with no decay step');
+select pg_temp.expect_error($$insert into public.arbiter_actions (kind, month, note) values ('decay_waiver_revoked', '2027-05', 'never waived')$$, 'revoke a waiver that does not exist');
+insert into public.arbiter_actions (kind, month, note) values ('decay_waiver_revoked', '2027-02', 'Waived by mistake');
+do $$ begin
+  if public.decay_is_waived('2027-02') then raise exception 'FAIL: waiver not revoked'; end if;
+  raise notice 'PASS: waiver revoked';
+end $$;
+select pg_temp.expect_error($$insert into public.arbiter_actions (kind, month, note) values ('decay_waiver_revoked', '2027-02', 'again')$$, 'revoke the same waiver twice');
+
+-- Claim A satisfied: only from the right state, linking approved evidence, dated in range.
+select pg_temp.expect_error($$insert into public.arbiter_actions (kind, effective_on, evidence_ids, note) values ('claim_a_satisfied', '2026-10-25', array['11111111-1111-1111-1111-111111111111']::uuid[], 'twice')$$, 'mark Claim A satisfied twice');
+insert into public.arbiter_actions (kind, note) values ('claim_a_unsatisfied', 'Replication failed');
+select pg_temp.expect_error($$insert into public.arbiter_actions (kind, note) values ('claim_a_unsatisfied', 'again')$$, 'unmark when not satisfied');
+select pg_temp.expect_error($$insert into public.arbiter_actions (kind, effective_on, evidence_ids, note) values ('claim_a_satisfied', '2026-10-25', array['11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999999']::uuid[], 'unknown item')$$, 'satisfied linking evidence that is not approved');
+select pg_temp.expect_error($$insert into public.arbiter_actions (kind, effective_on, evidence_ids, note) values ('claim_a_satisfied', '2099-01-01', array['11111111-1111-1111-1111-111111111111']::uuid[], 'future')$$, 'satisfied dated in the future');
+do $$ begin
+  if public.claim_a_is_satisfied() then raise exception 'FAIL: still satisfied'; end if;
+  raise notice 'PASS: satisfied state follows the latest mark';
 end $$;
 
 -- Audit log: populated and append-only; no deletes.

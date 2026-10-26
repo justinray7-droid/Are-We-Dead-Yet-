@@ -64,3 +64,17 @@ test("Latest satisfied/unsatisfied action wins; waivers collected", () => {
   assert.equal(state.claimASatisfied, null);
   assert.deepEqual(state.decayWaivers, [{ month: "2027-02", note: "updated" }]);
 });
+
+test("A revoked waiver no longer waives; waiving again restores it", () => {
+  const row = (kind: "decay_waiver" | "decay_waiver_revoked", month: string, note: string, at: string) => ({
+    kind, month, effective_on: null, evidence_ids: [], note, created_at: at,
+  });
+  const state = toArbiterState([
+    row("decay_waiver", "2027-02", "conference", "2027-03-01T00:00:00Z"),
+    row("decay_waiver", "2027-04", "holiday", "2027-05-01T00:00:00Z"),
+    row("decay_waiver_revoked", "2027-02", "mistake", "2027-03-02T00:00:00Z"),
+    row("decay_waiver_revoked", "2027-04", "mistake", "2027-05-02T00:00:00Z"),
+    row("decay_waiver", "2027-04", "re-waived", "2027-05-03T00:00:00Z"),
+  ]);
+  assert.deepEqual(state.decayWaivers, [{ month: "2027-04", note: "re-waived" }]);
+});
