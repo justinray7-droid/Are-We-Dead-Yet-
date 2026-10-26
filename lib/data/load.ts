@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { recompute, todayIn, type EngineResult } from "@/lib/engine/index.ts";
+import { recompute, todayIn, type EngineConfig, type EngineResult } from "@/lib/engine/index.ts";
 import {
   currentConfig,
   toArbiterState,
@@ -11,6 +11,7 @@ import {
 
 export interface Snapshot {
   result: EngineResult;
+  config: EngineConfig;
   configVersion: number;
   timeZone: string;
   resolutionDate: string;
@@ -50,6 +51,7 @@ export async function loadSnapshot(): Promise<Snapshot> {
 
   return {
     result,
+    config,
     configVersion: version,
     timeZone,
     resolutionDate: config.resolutionDate,

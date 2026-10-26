@@ -10,6 +10,7 @@ Spec: `docs/requirements-v1.1.md`.
 - **Database** (`supabase/`): tables, roles, row-level security, append-only audit log, change requests with three-way approval, and seed data. Rules tested on Postgres.
 - **App shell**: magic-link sign-in limited to three members, and a status page showing live probabilities.
 - **Evidence flow**: bettors submit dated, sourced evidence; everyone sees the pending queue and can comment; Shaun approves (setting final direction, strength, correlation discount and links), rejects with a reason, or requests changes; approval recomputes every probability. Each item's page shows the exact math of its effect.
+- **Dashboard**: headline with a loose/strict toggle, per-claim cards, a history chart with markers for evidence, decay steps, late additions and Claim A satisfied (hover, keyboard and table view), and a countdown to resolution.
 
 ## Setup
 
