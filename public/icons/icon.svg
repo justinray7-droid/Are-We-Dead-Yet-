@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- App icon source. Full-bleed square: iOS rounds the corners itself.
+       PNGs are rendered from this by scripts/make-icons.mjs. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f2a44"/>
+      <stop offset="1" stop-color="#0c0a09"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <g stroke="#ffffff" stroke-opacity="0.12" stroke-width="6">
+    <line x1="168" y1="340" x2="856" y2="340"/>
+    <line x1="168" y1="500" x2="856" y2="500"/>
+    <line x1="168" y1="660" x2="856" y2="660"/>
+  </g>
+  <path d="M168 620 H330 V700 H470 V430 H640 V470 H770 V330 H856" fill="none" stroke="#ffffff"
+        stroke-width="34" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M470 352 L520 438 L420 438 Z" fill="#3987e5" stroke="#0c0a09" stroke-width="14" paint-order="stroke" stroke-linejoin="round"/>
+  <path d="M330 778 L380 692 L280 692 Z" fill="#e66767" stroke="#0c0a09" stroke-width="14" paint-order="stroke" stroke-linejoin="round"/>
+  <circle cx="856" cy="330" r="34" fill="#ffffff"/>
+  <text x="512" y="236" text-anchor="middle" fill="#ffffff"
+        font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
+        font-size="150" font-weight="800" letter-spacing="6">2031</text>
+</svg>
