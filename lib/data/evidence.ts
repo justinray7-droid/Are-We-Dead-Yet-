@@ -1,4 +1,4 @@
-import { createClient, currentMemberId } from "@/lib/supabase/server";
+import { db, getMemberId } from "@/lib/supabase/client.ts";
 import type { ClaimId, Direction } from "@/lib/engine/index.ts";
 import type { SourceType } from "@/lib/evidence/form.ts";
 
@@ -60,7 +60,8 @@ function check<T>(res: { data: T | null; error: { message: string } | null }): T
 
 /** The member this browser picked plus everyone's names, for "submitted by" labels. */
 export async function loadPeople(): Promise<{ me: (Member & { user_id: string }) | null; names: Map<string, string> }> {
-  const [supabase, memberId] = await Promise.all([createClient(), currentMemberId()]);
+  const supabase = db();
+  const memberId = getMemberId();
   const members = check(await supabase.from("members").select("user_id, name, role")) as Member[];
   const names = new Map(members.filter((m) => m.user_id).map((m) => [m.user_id!, m.name]));
   const me = members.find((m) => memberId && m.user_id === memberId);
@@ -68,7 +69,7 @@ export async function loadPeople(): Promise<{ me: (Member & { user_id: string })
 }
 
 export async function listEvidence(statuses?: readonly Status[]): Promise<EvidenceItem[]> {
-  const supabase = await createClient();
+  const supabase = db();
   let q = supabase.from("evidence").select(ITEM_COLUMNS);
   if (statuses) q = q.in("status", statuses as Status[]);
   const rows = check(await q.order("event_date", { ascending: false }).order("submitted_at", { ascending: false }));
@@ -80,7 +81,7 @@ export async function loadEvidence(id: string): Promise<{
   comments: CommentRow[];
   links: { id: string; title: string; event_date: string; status: Status }[];
 } | null> {
-  const supabase = await createClient();
+  const supabase = db();
   const [itemRes, commentsRes, linksRes] = await Promise.all([
     supabase.from("evidence").select(ITEM_COLUMNS).eq("id", id).maybeSingle(),
     supabase.from("comments").select("id, author, body, created_at").eq("evidence_id", id).order("created_at"),
@@ -99,7 +100,7 @@ export async function loadEvidence(id: string): Promise<{
 }
 
 export async function countByStatus(): Promise<Record<Status, number>> {
-  const supabase = await createClient();
+  const supabase = db();
   const rows = check(await supabase.from("evidence").select("status")) as { status: Status }[];
   const out: Record<Status, number> = { pending: 0, approved: 0, rejected: 0, needs_changes: 0 };
   for (const r of rows) out[r.status] += 1;

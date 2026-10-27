@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CLAIMS, CLAIM_LABELS, STRENGTH_LABELS } from "@/lib/engine/index.ts";
 import { DECISIONS, type FormValues } from "@/lib/evidence/form.ts";
 import type { FormState } from "../actions.ts";
@@ -26,6 +27,10 @@ export function ReviewForm({
   candidates: { id: string; title: string; event_date: string }[];
 }) {
   const [state, formAction, pending] = useActionState(action, null);
+  const router = useRouter();
+  useEffect(() => {
+    if (state?.goTo) router.push(state.goTo);
+  }, [state, router]);
   const v = state?.values ?? initial;
   const val = (k: string) => (typeof v[k] === "string" ? (v[k] as string) : "");
   const linked = new Set(Array.isArray(v.links) ? v.links : []);

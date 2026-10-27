@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { invalidate } from "@/lib/client/useData.ts";
 import { useEffect } from "react";
 
 type Tab = { href: string; label: string; icon: keyof typeof ICONS; badge?: number };
@@ -29,21 +30,22 @@ export function TabBar({ isArbiter, pending }: { isArbiter: boolean; pending: nu
   const path = usePathname();
   const tabs: Tab[] = [
     { href: "/", label: "Home", icon: "home" },
-    { href: "/evidence", label: "Evidence", icon: "list" },
-    { href: "/queue", label: isArbiter ? "Review" : "Pending", icon: "inbox", badge: pending },
-    isArbiter ? { href: "/rules", label: "Rules", icon: "scale" } : { href: "/evidence/new", label: "Submit", icon: "plus" },
-    { href: "/more", label: "More", icon: "more" },
+    { href: "/evidence/", label: "Evidence", icon: "list" },
+    { href: "/queue/", label: isArbiter ? "Review" : "Pending", icon: "inbox", badge: pending },
+    isArbiter ? { href: "/rules/", label: "Rules", icon: "scale" } : { href: "/evidence/new/", label: "Submit", icon: "plus" },
+    { href: "/more/", label: "More", icon: "more" },
   ];
   // The most specific tab whose path prefixes the current page is active.
+  const here = path.endsWith("/") ? path : path + "/";
   const active = tabs
-    .filter((t) => (t.href === "/" ? path === "/" : path === t.href || path.startsWith(t.href + "/")))
+    .filter((t) => (t.href === "/" ? here === "/" : here.startsWith(t.href)))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
-  const moreActive = ["/rules", "/audit", "/resolution", "/more"].some((p) => path.startsWith(p)) && active !== "/rules";
+  const moreActive = ["/rules/", "/audit/", "/resolution/", "/more/"].some((p) => here.startsWith(p)) && active !== "/rules/";
 
   return (
     <nav className="tabbar" aria-label="Main">
       {tabs.map((t) => {
-        const on = t.href === "/more" ? moreActive : t.href === active;
+        const on = t.href === "/more/" ? moreActive : t.href === active;
         return (
           <Link key={t.href} href={t.href} className={on ? "on" : undefined} aria-current={on ? "page" : undefined}>
             <span className="tab-icon">
@@ -63,15 +65,14 @@ export function TabBar({ isArbiter, pending }: { isArbiter: boolean; pending: nu
  * data whenever it comes back to the foreground.
  */
 export function RefreshOnFocus() {
-  const router = useRouter();
   useEffect(() => {
     let hiddenAt = 0;
     const onChange = () => {
       if (document.visibilityState === "hidden") hiddenAt = Date.now();
-      else if (Date.now() - hiddenAt > 5_000) router.refresh();
+      else if (Date.now() - hiddenAt > 5_000) invalidate();
     };
     document.addEventListener("visibilitychange", onChange);
     return () => document.removeEventListener("visibilitychange", onChange);
-  }, [router]);
+  }, []);
   return null;
 }

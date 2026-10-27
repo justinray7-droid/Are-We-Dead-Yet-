@@ -1,3 +1,5 @@
+import { evidenceHref } from "../links.ts";
+
 // Turns raw audit_log rows into readable lines. Pure, so it runs under node --test.
 
 export interface AuditRow {
@@ -59,7 +61,7 @@ export function describeAudit(row: AuditRow, titles: Map<string, string>, backda
   const rec = row.action === "delete" ? o : n;
   const evId = row.entity_id ?? "";
   const title = `“${titles.get(evId) ?? str(rec.title) ?? "an item"}”`;
-  const evHref = evId ? `/evidence/${evId}` : undefined;
+  const evHref = evId ? evidenceHref(evId) : undefined;
 
   switch (row.entity) {
     case "evidence": {
@@ -109,35 +111,35 @@ export function describeAudit(row: AuditRow, titles: Map<string, string>, backda
         category: "discussion",
         text: `commented on “${titles.get(target) ?? "an item"}”`,
         detail: excerpt(str(n.body)),
-        href: target ? `/evidence/${target}` : undefined,
+        href: target ? evidenceHref(target) : undefined,
       };
     }
     case "arbiter_actions": {
       const note = str(n.note) || undefined;
       switch (n.kind) {
         case "decay_waiver":
-          return { category: "arbiter", text: `waived the ${str(n.month)} decay step`, detail: note, href: "/queue" };
+          return { category: "arbiter", text: `waived the ${str(n.month)} decay step`, detail: note, href: "/queue/" };
         case "decay_waiver_revoked":
-          return { category: "arbiter", text: `revoked the ${str(n.month)} decay waiver`, detail: note, href: "/queue" };
+          return { category: "arbiter", text: `revoked the ${str(n.month)} decay waiver`, detail: note, href: "/queue/" };
         case "claim_a_satisfied":
-          return { category: "arbiter", text: `marked Claim A satisfied from ${str(n.effective_on)}`, detail: note, href: "/queue" };
+          return { category: "arbiter", text: `marked Claim A satisfied from ${str(n.effective_on)}`, detail: note, href: "/queue/" };
         case "claim_a_unsatisfied":
-          return { category: "arbiter", text: "reversed the Claim A satisfied mark", detail: note, href: "/queue" };
+          return { category: "arbiter", text: "reversed the Claim A satisfied mark", detail: note, href: "/queue/" };
         case "final_ruling": {
           const overall = (n.payload as { overall?: string } | undefined)?.overall;
-          return { category: "arbiter", text: `recorded the final ruling: the bet resolves ${overall ?? "?"}`, detail: note, href: "/resolution" };
+          return { category: "arbiter", text: `recorded the final ruling: the bet resolves ${overall ?? "?"}`, detail: note, href: "/resolution/" };
         }
         default:
           return { category: "arbiter", text: `recorded ${str(n.kind)}`, detail: note };
       }
     }
     case "config_versions":
-      return { category: "settings", text: `saved settings v${str(n.version)}`, detail: str(n.note) || undefined, href: "/rules#settings" };
+      return { category: "settings", text: `saved settings v${str(n.version)}`, detail: str(n.note) || undefined, href: "/rules/#settings" };
     case "definition_versions":
-      return { category: "definitions", text: `definitions v${str(n.version)} took effect`, detail: str(n.change_log) || undefined, href: "/rules" };
+      return { category: "definitions", text: `definitions v${str(n.version)} took effect`, detail: str(n.change_log) || undefined, href: "/rules/" };
     case "change_requests": {
       const kind = n.kind === "priors" ? "priors" : "definitions";
-      const href = `/rules#request-${evId}`;
+      const href = `/rules/#request-${evId}`;
       if (row.action === "insert") return { category: "requests", text: `proposed a ${kind} change`, detail: str(n.rationale) || undefined, href };
       if (n.status === "applied") return { category: "requests", text: `the ${kind} change was approved by all three and applied`, href };
       if (n.status === "rejected") return { category: "requests", text: `the ${kind} change was rejected`, href };
@@ -148,7 +150,7 @@ export function describeAudit(row: AuditRow, titles: Map<string, string>, backda
         category: "requests",
         text: n.decision === "reject" ? "rejected a change request" : "approved a change request",
         detail: str(n.note) && n.note !== "Proposed it" ? str(n.note) : undefined,
-        href: `/rules#request-${evId}`,
+        href: `/rules/#request-${evId}`,
       };
     default:
       return { category: "settings", text: `${row.action} on ${row.entity}` };

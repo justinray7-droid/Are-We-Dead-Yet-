@@ -1,5 +1,11 @@
+"use client";
+
+import { useData } from "@/lib/client/useData.ts";
+import { Loading } from "../../Loading.tsx";
+import { NotFound } from "../../NotFound.tsx";
+import { editHref, evidenceHref } from "@/lib/links.ts";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { CLAIM_LABELS, STRENGTH_LABELS, toOdds, type Step } from "@/lib/engine/index.ts";
 import { listEvidence, loadEvidence, loadPeople } from "@/lib/data/evidence.ts";
 import { loadSnapshot } from "@/lib/data/load.ts";
@@ -34,10 +40,15 @@ function StepMath({ s }: { s: Step }) {
   );
 }
 
-export default async function EvidenceDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const [loaded, { me, names }, snapshot] = await Promise.all([loadEvidence(id), loadPeople(), loadSnapshot()]);
-  if (!loaded) notFound();
+export default function EvidenceDetailPage() {
+  const id = useSearchParams().get("id") ?? "";
+  const { data, error } = useData(
+    () => Promise.all([loadEvidence(id), loadPeople(), loadSnapshot(), listEvidence()]),
+    [id],
+  );
+  if (!data) return <Loading error={error} />;
+  const [loaded, { me, names }, snapshot, allItems] = data;
+  if (!loaded) return <NotFound />;
   const { item, comments, links } = loaded;
   const { result, timeZone } = snapshot;
 
@@ -63,7 +74,7 @@ export default async function EvidenceDetailPage({ params }: { params: Promise<{
       initial[`strength_${c.claim}`] = String(c.final_strength ?? c.proposed_strength ?? 2);
       initial[`discount_${c.claim}`] = String(c.discount);
     }
-    const candidates = (await listEvidence()).filter((e) => e.id !== id && e.status !== "rejected");
+    const candidates = allItems.filter((e) => e.id !== id && e.status !== "rejected");
     reviewForm = (
       <ReviewForm action={reviewEvidence.bind(null, id)} initial={initial} proposed={proposed} candidates={candidates} />
     );
@@ -72,7 +83,7 @@ export default async function EvidenceDetailPage({ params }: { params: Promise<{
   return (
     <main>
       <p className="small">
-        <Link href="/evidence">← Evidence</Link>
+        <Link href="/evidence/">← Evidence</Link>
       </p>
       <div className="row spread">
         <h1>{item.title}</h1>
@@ -86,7 +97,7 @@ export default async function EvidenceDetailPage({ params }: { params: Promise<{
       </p>
       {canEdit && (
         <p>
-          <Link href={`/evidence/${id}/edit`}>{item.status === "needs_changes" ? "Edit and resubmit →" : "Edit →"}</Link>
+          <Link href={editHref(id)}>{item.status === "needs_changes" ? "Edit and resubmit →" : "Edit →"}</Link>
         </p>
       )}
 
@@ -179,7 +190,7 @@ export default async function EvidenceDetailPage({ params }: { params: Promise<{
           <ul>
             {links.map((l) => (
               <li key={l.id}>
-                <Link href={`/evidence/${l.id}`}>{l.title}</Link>{" "}
+                <Link href={evidenceHref(l.id)}>{l.title}</Link>{" "}
                 <span className="muted small">
                   {l.event_date} · {STATUS_LABELS[l.status]}
                 </span>

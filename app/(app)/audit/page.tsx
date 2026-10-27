@@ -1,3 +1,8 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { useData } from "@/lib/client/useData.ts";
+import { Loading } from "../Loading.tsx";
 import Link from "next/link";
 import { AUDIT_CATEGORIES, describeAudit, type AuditCategory } from "@/lib/audit/describe.ts";
 import { loadPeople } from "@/lib/data/evidence.ts";
@@ -6,14 +11,17 @@ import { DEFAULT_TIME_ZONE } from "@/lib/data/toEngine.ts";
 import { formatDateTime } from "@/lib/evidence/labels.ts";
 
 // Append-only record of every change. Nothing here can be edited or deleted.
-export default async function AuditPage({ searchParams }: { searchParams: Promise<{ before?: string; show?: string }> }) {
-  const { before, show } = await searchParams;
+export default function AuditPage() {
+  const query = useSearchParams();
+  const before = query.get("before") ?? undefined;
+  const show = query.get("show") ?? undefined;
   const category = show && show in AUDIT_CATEGORIES ? (show as AuditCategory) : undefined;
-  const [{ rows, more }, titles, { names }] = await Promise.all([
-    loadAudit(Number(before) || undefined),
-    loadEvidenceTitles(),
-    loadPeople(),
-  ]);
+  const { data, error } = useData(
+    () => Promise.all([loadAudit(Number(before) || undefined), loadEvidenceTitles(), loadPeople()]),
+    [before],
+  );
+  if (!data) return <Loading error={error} />;
+  const [{ rows, more }, titles, { names }] = data;
   const lines = rows
     .map((r) => ({ r, line: describeAudit(r, titles) }))
     .filter(({ line }) => !category || line.category === category);
@@ -21,7 +29,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries({ show: category, ...extra })) if (v) p.set(k, v);
     const s = p.toString();
-    return s ? `/audit?${s}` : "/audit";
+    return s ? `/audit/?${s}` : "/audit/";
   };
 
   return (

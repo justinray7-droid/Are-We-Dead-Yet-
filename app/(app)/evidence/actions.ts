@@ -1,8 +1,6 @@
-"use server";
-
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { invalidate } from "@/lib/client/useData.ts";
+import { evidenceHref } from "@/lib/links.ts";
+import { db } from "@/lib/supabase/client.ts";
 import { todayIn } from "@/lib/engine/index.ts";
 import { DEFAULT_TIME_ZONE } from "@/lib/data/toEngine.ts";
 import { formValues, parseReview, parseSubmission, type FormValues } from "@/lib/evidence/form.ts";
@@ -12,7 +10,14 @@ export type FormState = {
   values: FormValues;
   /** Bumped on each failed attempt so the form remounts with the echoed values. */
   attempt: number;
+  /** Set on success: where the form should navigate next. */
+  goTo?: string;
 } | null;
+
+const go = (prev: FormState, to: string): FormState => {
+  invalidate();
+  return { errors: {}, values: {}, attempt: prev?.attempt ?? 0, goTo: to };
+};
 
 function fail(prev: FormState, form: FormData, errors: Record<string, string>): FormState {
   return { errors, values: formValues(form), attempt: (prev?.attempt ?? 0) + 1 };
@@ -22,24 +27,22 @@ export async function submitEvidence(prev: FormState, form: FormData): Promise<F
   const parsed = parseSubmission(form, todayIn(DEFAULT_TIME_ZONE));
   if (!parsed.ok) return fail(prev, form, parsed.errors);
 
-  const supabase = await createClient();
+  const supabase = db();
   const { data, error } = await supabase.rpc("submit_evidence", { item: parsed.value });
   if (error) return fail(prev, form, { form: error.message });
 
-  revalidatePath("/", "layout");
-  redirect(`/evidence/${data as string}`);
+  return go(prev, evidenceHref(data as string));
 }
 
 export async function resubmitEvidence(id: string, prev: FormState, form: FormData): Promise<FormState> {
   const parsed = parseSubmission(form, todayIn(DEFAULT_TIME_ZONE));
   if (!parsed.ok) return fail(prev, form, parsed.errors);
 
-  const supabase = await createClient();
+  const supabase = db();
   const { error } = await supabase.rpc("resubmit_evidence", { p_id: id, item: parsed.value });
   if (error) return fail(prev, form, { form: error.message });
 
-  revalidatePath("/", "layout");
-  redirect(`/evidence/${id}`);
+  return go(prev, evidenceHref(id));
 }
 
 /** Arbiter decision. Approval changes the inputs, so every page recomputes. */
@@ -48,7 +51,7 @@ export async function reviewEvidence(id: string, prev: FormState, form: FormData
   if (!parsed.ok) return fail(prev, form, parsed.errors);
   const r = parsed.value;
 
-  const supabase = await createClient();
+  const supabase = db();
   const { error } = await supabase.rpc("review_evidence", {
     p_id: id,
     p_decision: r.decision,
@@ -59,8 +62,7 @@ export async function reviewEvidence(id: string, prev: FormState, form: FormData
   });
   if (error) return fail(prev, form, { form: error.message });
 
-  revalidatePath("/", "layout");
-  redirect(`/evidence/${id}`);
+  return go(prev, evidenceHref(id));
 }
 
 export async function addComment(id: string, prev: FormState, form: FormData): Promise<FormState> {
@@ -68,10 +70,10 @@ export async function addComment(id: string, prev: FormState, form: FormData): P
   if (!body) return fail(prev, form, { body: "Write something first." });
   if (body.length > 5000) return fail(prev, form, { body: "Keep comments under 5,000 characters." });
 
-  const supabase = await createClient();
+  const supabase = db();
   const { error } = await supabase.from("comments").insert({ evidence_id: id, body });
   if (error) return fail(prev, form, { form: error.message });
 
-  revalidatePath(`/evidence/${id}`);
+  invalidate();
   return null;
 }

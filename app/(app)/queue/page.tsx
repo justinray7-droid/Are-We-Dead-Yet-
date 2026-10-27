@@ -1,3 +1,8 @@
+"use client";
+
+import { useData } from "@/lib/client/useData.ts";
+import { Loading } from "../Loading.tsx";
+import { evidenceHref } from "@/lib/links.ts";
 import Link from "next/link";
 import { decayMonthEnds, monthOf } from "@/lib/engine/index.ts";
 import { listEvidence, loadPeople } from "@/lib/data/evidence.ts";
@@ -10,13 +15,19 @@ import { markSatisfied, revokeWaiver, unmarkSatisfied, waiveDecay } from "./acti
 
 // Pending queue, visible to all three. For Shaun it is the arbiter queue, with
 // the decay-waiver and Claim A satisfied controls.
-export default async function QueuePage() {
-  const [items, { me, names }, snapshot, actions] = await Promise.all([
-    listEvidence(),
-    loadPeople(),
-    loadSnapshot(),
-    loadArbiterActions(),
-  ]);
+export default function QueuePage() {
+  const { data, error } = useData(
+    () =>
+      Promise.all([
+        listEvidence(),
+        loadPeople(),
+        loadSnapshot(),
+        loadArbiterActions(),
+      ]),
+    [],
+  );
+  if (!data) return <Loading error={error} />;
+  const [items, { me, names }, snapshot, actions] = data;
   const { result, config, timeZone } = snapshot;
   // Oldest first, so nothing waits forever.
   const byAge = [...items].sort((a, b) => a.submitted_at.localeCompare(b.submitted_at));
@@ -61,7 +72,7 @@ export default async function QueuePage() {
       <EvidenceList items={waiting} names={names} steps={[]} empty="Nothing sent back." />
       {me && !isArbiter && (
         <p>
-          <Link href="/evidence/new">Submit evidence →</Link>
+          <Link href="/evidence/new/">Submit evidence →</Link>
         </p>
       )}
 
@@ -77,7 +88,7 @@ export default async function QueuePage() {
             <ul className="small">
               {satisfied.evidence_ids.map((id) => (
                 <li key={id}>
-                  <Link href={`/evidence/${id}`}>{titles.get(id) ?? id}</Link>
+                  <Link href={evidenceHref(id)}>{titles.get(id) ?? id}</Link>
                 </li>
               ))}
             </ul>
@@ -155,7 +166,7 @@ export default async function QueuePage() {
         )}
         <p className="muted small">
           A waived month&apos;s step is not applied. Every waiver and revocation is in the{" "}
-          <Link href="/audit">audit log</Link>
+          <Link href="/audit/">audit log</Link>
           {actions[0] ? ` (latest arbiter action ${formatDateTime(actions[0].created_at, timeZone)})` : ""}.
         </p>
       </section>

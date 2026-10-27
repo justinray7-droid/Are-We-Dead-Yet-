@@ -6,7 +6,7 @@ export type ActionState = { errors: Record<string, string>; done?: boolean } | n
 type Action = (prev: ActionState, form: FormData) => Promise<ActionState>;
 
 /**
- * Form for a server action that keeps what was typed when the action returns
+ * Form for an action that keeps what was typed when the action returns
  * errors (React resets forms submitted through the action prop), and clears
  * itself once the action reports done.
  */

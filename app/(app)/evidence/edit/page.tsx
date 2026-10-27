@@ -1,16 +1,24 @@
+"use client";
+
+import { useData } from "@/lib/client/useData.ts";
+import { Loading } from "../../Loading.tsx";
+import { NotFound } from "../../NotFound.tsx";
+import { evidenceHref } from "@/lib/links.ts";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { todayIn } from "@/lib/engine/index.ts";
 import { DEFAULT_TIME_ZONE } from "@/lib/data/toEngine.ts";
 import { loadEvidence, loadPeople } from "@/lib/data/evidence.ts";
 import type { FormValues } from "@/lib/evidence/form.ts";
-import { resubmitEvidence } from "../../actions.ts";
-import { EvidenceForm } from "../../EvidenceForm.tsx";
+import { resubmitEvidence } from "../actions.ts";
+import { EvidenceForm } from "../EvidenceForm.tsx";
 
-export default async function EditEvidencePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const [loaded, { me }] = await Promise.all([loadEvidence(id), loadPeople()]);
-  if (!loaded) notFound();
+export default function EditEvidencePage() {
+  const id = useSearchParams().get("id") ?? "";
+  const { data, error } = useData(() => Promise.all([loadEvidence(id), loadPeople()]), [id]);
+  if (!data) return <Loading error={error} />;
+  const [loaded, { me }] = data;
+  if (!loaded) return <NotFound />;
   const { item } = loaded;
 
   const editable = me?.user_id === item.submitted_by && (item.status === "pending" || item.status === "needs_changes");
@@ -20,7 +28,7 @@ export default async function EditEvidencePage({ params }: { params: Promise<{ i
         <h1>Edit evidence</h1>
         <p className="card">
           Only the submitter can edit an item, and only before Shaun approves or rejects it.{" "}
-          <Link href={`/evidence/${id}`}>Back to the item</Link>
+          <Link href={evidenceHref(id)}>Back to the item</Link>
         </p>
       </main>
     );

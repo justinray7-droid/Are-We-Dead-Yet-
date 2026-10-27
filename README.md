@@ -10,7 +10,7 @@ Spec: `docs/requirements-v1.1.md`.
 
 - **Probability engine** (`lib/engine/`): odds updating, strength scale, correlation discounts, multi-claim tags, monthly decay on Claim A with skips and waivers, the Claim A satisfied override, caps, and backdated flags. Fully tested.
 - **Database** (`supabase/`): tables, roles, row-level security, append-only audit log, change requests with three-way approval, and seed data. Rules tested on Postgres.
-- **Who's who (honor system)**: no logins. The first time a device opens the app, it asks "Who's using this phone?" and remembers the answer; "Switch person" is in the menu. The database still enforces each person's role (only Shaun approves evidence, bettors edit only their own items) and records every action under the chosen name.
+- **Who's who (honor system)**: no logins. The first time a device opens the app, it asks "Who's using this phone?" and remembers the answer on that device; "Switch person" is in the menu. The database still enforces each person's role (only Shaun approves evidence, bettors edit only their own items) and records every action under the chosen name.
 - **Evidence flow**: bettors submit dated, sourced evidence; everyone sees the pending queue and can comment; Shaun approves (setting final direction, strength, correlation discount and links), rejects with a reason, or requests changes; approval recomputes every probability. Each item's page shows the exact math of its effect.
 - **Dashboard**: headline with a loose/strict toggle, per-claim cards, a history chart with markers for evidence, decay steps, late additions and Claim A satisfied (tap, hover, keyboard and table view), a countdown to resolution, and a recent-activity feed.
 - **Governance**: a Rules page with versioned definitions and change requests (definitions need all three approvals, priors need both bettors and Shaun), Shaun's direct recalibration of the other settings, decay waivers and the Claim A satisfied mark, a readable audit log, a filterable Evidence Log that includes decay steps, and one-click JSON/CSV export.
@@ -19,22 +19,21 @@ Spec: `docs/requirements-v1.1.md`.
 
 ## Setup
 
+Everything runs on two free services: **Supabase** holds the data and **GitHub Pages** hosts the app. There is no server.
+
 1. **Supabase project.** At supabase.com, create a free project. No auth or email settings are needed.
 2. **Database.** In the Supabase **SQL Editor**, run each file in `supabase/migrations/` in order (`0001_init.sql` through `0005_honor_system.sql`), then `supabase/seed.sql`. Paste each file's contents and click **Run**; wait for success before the next. Don't run anything in `supabase/tests/`.
-3. **Keys.** Copy `.env.example` to `.env.local` and fill in the **Project URL** and the **anon** (or **publishable**) key from **Project Settings > API Keys**. Never use the `service_role`/secret key. These variables are server-only, so the key never reaches anyone's phone.
-4. **Run it.** `npm install`, then `npm run dev`, and open http://localhost:3000. Pick a name and you're in.
+3. **Connect GitHub to Supabase.** In Supabase, open **Project Settings > API Keys** and copy the **Project URL** and the **anon** (or **publishable**) key. Never use the `service_role`/secret key. In this GitHub repository, go to **Settings > Secrets and variables > Actions > Variables** and add two repository variables: `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+4. **Turn on GitHub Pages.** In the repository, go to **Settings > Pages** and set **Source** to **GitHub Actions**.
+5. **Publish.** Go to the **Actions** tab, open **Deploy to GitHub Pages**, and click **Run workflow** (it also runs by itself on every push to `main`). When it finishes, the app is at `https://<your-github-name>.github.io/Are-We-Dead-Yet-/`.
 
-## Deploying
+The key ends up inside the published app, so anyone who has the link (or digs the key out) could read or change the data. That's fine for a friendly bet among three people; just don't share the link beyond the group. Search engines are told not to index it.
 
-1. Push to GitHub and import the repo at vercel.com (**Add New > Project**).
-2. Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` as environment variables, then deploy.
-3. Send the Vercel link to Alex and Shaun.
-
-Anyone with the link can open the app and pick a name, so share it only with the three of you. Search engines are told not to index it.
+To run it on your own computer instead: copy `.env.example` to `.env.local`, fill in the same two values, then `npm install` and `npm run dev`, and open http://localhost:3000.
 
 ## Installing on iPhone
 
-1. Open the link in **Safari** (other browsers can't add web apps on every iOS version).
+1. Open the GitHub Pages link in **Safari** (other browsers can't add web apps on every iOS version).
 2. Tap **Share**, then **Add to Home Screen**, then **Add**. It appears as **AI Wager**.
 3. Open it from the Home Screen and pick your name. The app remembers it (pick again from **More > Switch person**).
 

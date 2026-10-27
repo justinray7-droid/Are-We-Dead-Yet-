@@ -63,7 +63,7 @@ test("Audit lines read as sentences", () => {
   assert.equal(describeAudit(row("evidence_claims", "update", { old: { claim: "C", dropped: false }, new: { claim: "C", dropped: true } }), titles).text, "dropped the C tag from “Agent study”");
   assert.equal(describeAudit(row("evidence_links", "insert", { new: { evidence_id: "e1", related_id: "e2" } }), titles).text, "linked “Agent study” to “Press piece”");
   assert.equal(describeAudit(row("arbiter_actions", "insert", { new: { kind: "decay_waiver_revoked", month: "2027-02", note: "oops" } }, "x"), titles).text, "revoked the 2027-02 decay waiver");
-  assert.equal(describeAudit(row("change_requests", "update", { old: { status: "open" }, new: { kind: "priors", status: "applied" } }, "r1"), titles).href, "/rules#request-r1");
+  assert.equal(describeAudit(row("change_requests", "update", { old: { status: "open" }, new: { kind: "priors", status: "applied" } }, "r1"), titles).href, "/rules/#request-r1");
   assert.equal(describeAudit(row("comments", "insert", { new: { evidence_id: "e2", body: "Where is the paper?" } }, "c1"), titles).text, "commented on “Press piece”");
 });
 
@@ -77,5 +77,5 @@ test("Audit lines show event dates, flag late additions, and state the ruling", 
   assert.equal(describeAudit(row("evidence", "update", { old: { status: "pending" }, new: onTime }), titles).text, "approved “Agent study” (happened 2026-11-02)");
   assert.equal(describeAudit(row("evidence", "update", { old: { status: "pending" }, new: late }), titles).text, "approved “Agent study” (happened 2026-11-02, added late)");
   const ruling = describeAudit(row("arbiter_actions", "insert", { new: { kind: "final_ruling", payload: { overall: "NO" }, note: "Explainable" } }, "x"), titles);
-  assert.deepEqual([ruling.text, ruling.detail, ruling.href], ["recorded the final ruling: the bet resolves NO", "Explainable", "/resolution"]);
+  assert.deepEqual([ruling.text, ruling.detail, ruling.href], ["recorded the final ruling: the bet resolves NO", "Explainable", "/resolution/"]);
 });

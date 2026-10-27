@@ -1,3 +1,10 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { useData } from "@/lib/client/useData.ts";
+import { Loading } from "../Loading.tsx";
+import { evidenceHref } from "@/lib/links.ts";
+import { ExportLinks } from "../ExportLinks.tsx";
 import Link from "next/link";
 import { CLAIMS, STRENGTH_LABELS } from "@/lib/engine/index.ts";
 import { listEvidence, loadPeople } from "@/lib/data/evidence.ts";
@@ -16,9 +23,12 @@ const PILL: Record<string, string> = {
 };
 
 // Evidence Log: every item and every monthly decay step, filterable, with its effect.
-export default async function EvidencePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const f = parseLogFilters(await searchParams);
-  const [items, { names }, snapshot] = await Promise.all([listEvidence(), loadPeople(), loadSnapshot()]);
+export default function EvidencePage() {
+  const query = useSearchParams();
+  const f = parseLogFilters(Object.fromEntries(query.entries()));
+  const { data, error } = useData(() => Promise.all([listEvidence(), loadPeople(), loadSnapshot()]), []);
+  if (!data) return <Loading error={error} />;
+  const [items, { names }, snapshot] = data;
   const all = buildLog(items, snapshot.result.steps);
   const rows = filterLog(all, f);
 
@@ -26,12 +36,7 @@ export default async function EvidencePage({ searchParams }: { searchParams: Pro
     <main>
       <div className="row spread">
         <h1>Evidence log</h1>
-        <div className="row small">
-          Export:
-          <a href="/export/evidence.csv">Evidence CSV</a>
-          <a href="/export/history.csv">History CSV</a>
-          <a href="/export/wager-export.json">Everything (JSON)</a>
-        </div>
+        <ExportLinks />
       </div>
 
       <form method="get" className="card filters">
@@ -105,7 +110,7 @@ export default async function EvidencePage({ searchParams }: { searchParams: Pro
         </label>
         <div className="row">
           <button type="submit">Filter</button>
-          {hasFilters(f) && <Link href="/evidence">Clear</Link>}
+          {hasFilters(f) && <Link href="/evidence/">Clear</Link>}
         </div>
       </form>
 
@@ -122,7 +127,7 @@ export default async function EvidencePage({ searchParams }: { searchParams: Pro
             <li key={r.id} className={`card${r.type === "decay" ? " decay-row" : ""}`}>
               <div className="row spread">
                 {r.type === "evidence" ? (
-                  <Link href={`/evidence/${r.id}`} className="title">
+                  <Link href={evidenceHref(r.id)} className="title">
                     {r.title}
                   </Link>
                 ) : (
