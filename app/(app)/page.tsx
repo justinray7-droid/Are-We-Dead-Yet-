@@ -1,3 +1,9 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { useData } from "@/lib/client/useData.ts";
+import { Loading } from "./Loading.tsx";
+import { evidenceHref } from "@/lib/links.ts";
 import Link from "next/link";
 import { loadSnapshot } from "@/lib/data/load.ts";
 import { loadPeople } from "@/lib/data/evidence.ts";
@@ -47,16 +53,14 @@ function ClaimCard({
   );
 }
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
-  const { view: rawView } = await searchParams;
-  const view: View = rawView === "strict" ? "strict" : "loose";
-  const [s, { rows: auditRows }, titles, actions, { names }] = await Promise.all([
-    loadSnapshot(),
-    loadAudit(),
-    loadEvidenceTitles(),
-    loadArbiterActions(),
-    loadPeople(),
-  ]);
+export default function Dashboard() {
+  const view: View = useSearchParams().get("view") === "strict" ? "strict" : "loose";
+  const { data: loaded, error } = useData(
+    () => Promise.all([loadSnapshot(), loadAudit(), loadEvidenceTitles(), loadArbiterActions(), loadPeople()]),
+    [],
+  );
+  if (!loaded) return <Loading error={error} />;
+  const [s, { rows: auditRows }, titles, actions, { names }] = loaded;
   const { result, config } = s;
   const p = result.probabilities;
   const bClaim = view === "loose" ? "B_LOOSE" : "B_STRICT";
@@ -75,7 +79,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   return (
     <main>
       {ruling && (
-        <Link href="/resolution" className="card card-link verdict-banner">
+        <Link href="/resolution/" className="card card-link verdict-banner">
           <div className="muted small">Final ruling · {ruling.date}</div>
           <div className="big">The bet resolves {ruling.payload.overall}</div>
           <div className="small">Shaun has ruled. See the ruling on each claim →</div>
@@ -145,7 +149,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                           .filter((st, i) => m.steps.findIndex((x) => x.id === st.id) === i)
                           .map((st) => (
                             <div key={st.id}>
-                              {st.kind === "evidence" ? <Link href={`/evidence/${st.id}`}>{st.label}</Link> : st.label}
+                              {st.kind === "evidence" ? <Link href={evidenceHref(st.id)}>{st.label}</Link> : st.label}
                               {st.backdated && st.approvedDate ? ` (added late, approved ${st.approvedDate})` : ""}
                             </div>
                           ))}
@@ -215,12 +219,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             {left.reached ? "Waiting on Shaun's final ruling" : left.approx} · {s.resolutionDate}
           </div>
           {(rulingOpen || ruling) && (
-            <Link href="/resolution" className="small">
+            <Link href="/resolution/" className="small">
               Resolution mode →
             </Link>
           )}
         </div>
-        <Link href="/queue" className="card card-link">
+        <Link href="/queue/" className="card card-link">
           <div className="muted small">Pending review</div>
           <div className="big">{s.pendingCount}</div>
           <div className="muted small">Open the queue →</div>
@@ -230,7 +234,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <section className="card">
         <div className="row spread">
           <h2>Recent activity</h2>
-          <Link href="/audit" className="small">
+          <Link href="/audit/" className="small">
             Full audit log →
           </Link>
         </div>

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/supabase/client.ts";
 import type { AuditRow } from "@/lib/audit/describe.ts";
 import type { DefinitionKey, Definitions, StoredConfig } from "@/lib/governance/forms.ts";
 
@@ -21,7 +21,7 @@ export async function loadDefinitions(version?: number): Promise<{
   shown: number;
   definitions: Definitions;
 }> {
-  const supabase = await createClient();
+  const supabase = db();
   const versions = check<DefinitionVersion[]>(
     await supabase.from("definition_versions").select("version, change_log, request_id, created_at").order("version", { ascending: false }),
   );
@@ -44,7 +44,7 @@ export interface ConfigVersion {
 }
 
 export async function loadConfigVersions(): Promise<ConfigVersion[]> {
-  const supabase = await createClient();
+  const supabase = db();
   return check<ConfigVersion[]>(
     await supabase
       .from("config_versions")
@@ -70,7 +70,7 @@ export interface ChangeRequest {
 }
 
 export async function loadChangeRequests(): Promise<ChangeRequest[]> {
-  const supabase = await createClient();
+  const supabase = db();
   const [reqRes, apprRes] = await Promise.all([
     supabase
       .from("change_requests")
@@ -98,7 +98,7 @@ export interface ArbiterAction {
 }
 
 export async function loadArbiterActions(): Promise<ArbiterAction[]> {
-  const supabase = await createClient();
+  const supabase = db();
   return check<ArbiterAction[]>(
     await supabase
       .from("arbiter_actions")
@@ -111,7 +111,7 @@ export const AUDIT_PAGE = 100;
 
 /** Newest first; `before` is the id to page back from. */
 export async function loadAudit(before?: number): Promise<{ rows: AuditRow[]; more: boolean }> {
-  const supabase = await createClient();
+  const supabase = db();
   let q = supabase.from("audit_log").select("id, at, actor, action, entity, entity_id, details");
   if (before) q = q.lt("id", before);
   const rows = check<AuditRow[]>(await q.order("id", { ascending: false }).limit(AUDIT_PAGE + 1));
@@ -119,7 +119,7 @@ export async function loadAudit(before?: number): Promise<{ rows: AuditRow[]; mo
 }
 
 export async function loadEvidenceTitles(): Promise<Map<string, string>> {
-  const supabase = await createClient();
+  const supabase = db();
   const rows = check<{ id: string; title: string }[]>(await supabase.from("evidence").select("id, title"));
   return new Map(rows.map((r) => [r.id, r.title]));
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { CLAIMS, CLAIM_LABELS, STRENGTH_LABELS } from "@/lib/engine/index.ts";
 import { SOURCE_TYPES, type FormValues } from "@/lib/evidence/form.ts";
 import { STRENGTH_ANCHORS } from "@/lib/evidence/labels.ts";
@@ -38,6 +39,10 @@ export function EvidenceForm({
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
+  const router = useRouter();
+  useEffect(() => {
+    if (state?.goTo) router.push(state.goTo);
+  }, [state, router]);
   const v = state?.values ?? initial;
   const val = (k: string) => (typeof v[k] === "string" ? (v[k] as string) : "");
 

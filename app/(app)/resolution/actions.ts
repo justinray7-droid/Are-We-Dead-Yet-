@@ -1,7 +1,5 @@
-"use server";
-
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { invalidate } from "@/lib/client/useData.ts";
+import { db } from "@/lib/supabase/client.ts";
 import { parseRuling } from "@/lib/governance/resolution.ts";
 import type { ActionState } from "../ActionForm.tsx";
 
@@ -9,11 +7,11 @@ import type { ActionState } from "../ActionForm.tsx";
 export async function recordRuling(_prev: ActionState, form: FormData): Promise<ActionState> {
   const parsed = parseRuling(form);
   if (!parsed.ok) return { errors: parsed.errors };
-  const supabase = await createClient();
+  const supabase = db();
   const { error } = await supabase
     .from("arbiter_actions")
     .insert({ kind: "final_ruling", payload: parsed.value.payload, note: parsed.value.note });
   if (error) return { errors: { form: error.message } };
-  revalidatePath("/", "layout");
+  invalidate();
   return { errors: {}, done: true };
 }

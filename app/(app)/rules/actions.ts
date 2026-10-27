@@ -1,14 +1,12 @@
-"use server";
-
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { invalidate } from "@/lib/client/useData.ts";
+import { db } from "@/lib/supabase/client.ts";
 import { loadConfigVersions, loadDefinitions } from "@/lib/data/governance.ts";
 import { parseConfigUpdate, parseDefinitionsProposal, parsePriorsProposal } from "@/lib/governance/forms.ts";
 import type { ActionState } from "../ActionForm.tsx";
 
 const fail = (errors: Record<string, string>): ActionState => ({ errors });
 const done = (): ActionState => {
-  revalidatePath("/", "layout");
+  invalidate();
   return { errors: {}, done: true };
 };
 
@@ -16,7 +14,7 @@ export async function proposeDefinitions(_prev: ActionState, form: FormData): Pr
   const { definitions } = await loadDefinitions();
   const parsed = parseDefinitionsProposal(form, definitions);
   if (!parsed.ok) return fail(parsed.errors);
-  const supabase = await createClient();
+  const supabase = db();
   const { error } = await supabase.rpc("propose_change", {
     p_kind: "definitions",
     p_proposed: parsed.value.proposed,
@@ -29,7 +27,7 @@ export async function proposePriors(_prev: ActionState, form: FormData): Promise
   const [latest] = await loadConfigVersions();
   const parsed = parsePriorsProposal(form, latest.config.priors);
   if (!parsed.ok) return fail(parsed.errors);
-  const supabase = await createClient();
+  const supabase = db();
   const { error } = await supabase.rpc("propose_change", {
     p_kind: "priors",
     p_proposed: parsed.value.proposed,
@@ -44,7 +42,7 @@ export async function decideRequest(id: string, _prev: ActionState, form: FormDa
   const note = String(form.get("note") ?? "").trim();
   if (decision !== "approve" && decision !== "reject") return fail({ decision: "Approve or reject." });
   if (decision === "reject" && !note) return fail({ note: "Say why you're rejecting it." });
-  const supabase = await createClient();
+  const supabase = db();
   const { error } = await supabase.from("change_approvals").insert({ request_id: id, decision, note });
   return error ? fail({ form: error.message }) : done();
 }
@@ -54,7 +52,7 @@ export async function updateConfig(_prev: ActionState, form: FormData): Promise<
   const [latest] = await loadConfigVersions();
   const parsed = parseConfigUpdate(form, latest.config);
   if (!parsed.ok) return fail(parsed.errors);
-  const supabase = await createClient();
+  const supabase = db();
   // Version is the latest + 1, so a concurrent change fails on the primary key instead of being overwritten.
   const { error } = await supabase
     .from("config_versions")

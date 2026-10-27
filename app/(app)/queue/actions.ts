@@ -1,7 +1,5 @@
-"use server";
-
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { invalidate } from "@/lib/client/useData.ts";
+import { db } from "@/lib/supabase/client.ts";
 import { decayMonthEnds, monthOf, todayIn } from "@/lib/engine/index.ts";
 import { loadConfigVersions } from "@/lib/data/governance.ts";
 import { DEFAULT_TIME_ZONE } from "@/lib/data/toEngine.ts";
@@ -11,10 +9,10 @@ import type { ActionState } from "../ActionForm.tsx";
 const fail = (errors: Record<string, string>): ActionState => ({ errors });
 
 async function record(row: Record<string, unknown>): Promise<ActionState> {
-  const supabase = await createClient();
+  const supabase = db();
   const { error } = await supabase.from("arbiter_actions").insert(row);
   if (error) return fail({ form: error.message });
-  revalidatePath("/", "layout");
+  invalidate();
   return { errors: {}, done: true };
 }
 

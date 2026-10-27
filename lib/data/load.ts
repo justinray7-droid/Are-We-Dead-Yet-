@@ -1,4 +1,4 @@
-import { createClient, currentMemberId } from "@/lib/supabase/server";
+import { db, getMemberId } from "@/lib/supabase/client.ts";
 import { recompute, todayIn, type EngineConfig, type EngineResult } from "@/lib/engine/index.ts";
 import {
   currentConfig,
@@ -21,7 +21,8 @@ export interface Snapshot {
 
 /** Loads everything the engine needs and recomputes the full chain. */
 export async function loadSnapshot(): Promise<Snapshot> {
-  const [supabase, memberId] = await Promise.all([createClient(), currentMemberId()]);
+  const supabase = db();
+  const memberId = getMemberId();
 
   const [configRes, evidenceRes, actionsRes, meRes] = await Promise.all([
     supabase.from("config_versions").select("version, config"),

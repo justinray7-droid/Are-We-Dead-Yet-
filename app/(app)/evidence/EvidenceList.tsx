@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { evidenceHref } from "@/lib/links.ts";
 import type { Step } from "@/lib/engine/index.ts";
 import type { EvidenceItem } from "@/lib/data/evidence.ts";
 import { CLAIM_SHORT, STATUS_LABELS, pct } from "@/lib/evidence/labels.ts";
@@ -25,7 +26,7 @@ export function EvidenceList({
         return (
           <li key={e.id} className="card">
             <div className="row spread">
-              <Link href={`/evidence/${e.id}`} className="title">
+              <Link href={evidenceHref(e.id)} className="title">
                 {e.title}
               </Link>
               <span className={`pill ${e.status}`}>{STATUS_LABELS[e.status]}</span>

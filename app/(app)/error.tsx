@@ -12,7 +12,7 @@ export default function AppError({ reset }: { error: Error; reset: () => void })
         <button type="button" onClick={reset}>
           Try again
         </button>
-        <Link href="/who">Pick your name again</Link>
+        <Link href="/who/">Pick your name again</Link>
       </div>
     </main>
   );

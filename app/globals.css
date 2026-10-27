@@ -209,3 +209,8 @@ a, button, summary, label, select { touch-action: manipulation; }
   .tab-icon { position: relative; display: inline-flex; }
   .tab-icon .count { position: absolute; top: -4px; left: 16px; margin: 0; }
 }
+
+/* Static app: export buttons look like links; a quiet loading line. */
+button.linkish { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; font: inherit; cursor: pointer; }
+.menu button.linkish { font-weight: 600; text-decoration: none; text-align: left; }
+.loading { padding: 24px 0; }

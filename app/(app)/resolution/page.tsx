@@ -1,3 +1,8 @@
+"use client";
+
+import { useData } from "@/lib/client/useData.ts";
+import { Loading } from "../Loading.tsx";
+import { evidenceHref } from "@/lib/links.ts";
 import Link from "next/link";
 import { CLAIMS, type ClaimId } from "@/lib/engine/index.ts";
 import { loadPeople } from "@/lib/data/evidence.ts";
@@ -18,8 +23,10 @@ const CLAIM_NAMES: Record<ClaimId, string> = {
 const SIDE = { YES: "Alex's side", NO: "Justin's side" } as const;
 
 // Resolution mode: the final picture, and Shaun's ruling, which decides the bet.
-export default async function ResolutionPage() {
-  const [snapshot, actions, { me, names }] = await Promise.all([loadSnapshot(), loadArbiterActions(), loadPeople()]);
+export default function ResolutionPage() {
+  const { data, error } = useData(() => Promise.all([loadSnapshot(), loadArbiterActions(), loadPeople()]), []);
+  if (!data) return <Loading error={error} />;
+  const [snapshot, actions, { me, names }] = data;
   const { result, config, timeZone } = snapshot;
   const all = rulings(actions);
   const standing = all[0];
@@ -106,7 +113,7 @@ export default async function ResolutionPage() {
           <ol className="key-evidence">
             {key.map((k) => (
               <li key={k.id}>
-                <Link href={`/evidence/${k.id}`}>{k.title}</Link> <span className="muted small">{k.date}</span>
+                <Link href={evidenceHref(k.id)}>{k.title}</Link> <span className="muted small">{k.date}</span>
                 <div className="small">
                   {k.steps.map((s) => (
                     <span key={s.claim} className="tag">

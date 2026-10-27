@@ -1,3 +1,8 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { useData } from "@/lib/client/useData.ts";
+import { Loading } from "../Loading.tsx";
 import Link from "next/link";
 import { CLAIMS, STRENGTH_LABELS, type ClaimId } from "@/lib/engine/index.ts";
 import { loadPeople } from "@/lib/data/evidence.ts";
@@ -89,33 +94,33 @@ function RequestCard({
   );
 }
 
-export default async function RulesPage({ searchParams }: { searchParams: Promise<{ version?: string }> }) {
-  const { version } = await searchParams;
-  const [defs, configs, requests, { me, names }] = await Promise.all([
-    loadDefinitions(Number(version) || undefined),
-    loadConfigVersions(),
-    loadChangeRequests(),
-    loadPeople(),
-  ]);
+export default function RulesPage() {
+  const version = Number(useSearchParams().get("version")) || undefined;
+  const { data, error } = useData(
+    () => Promise.all([loadDefinitions(version), loadConfigVersions(), loadChangeRequests(), loadPeople(), loadDefinitions()]),
+    [version],
+  );
+  if (!data) return <Loading error={error} />;
+  const [defs, configs, requests, { me, names }, currentDefs] = data;
   const { config } = configs[0];
   const isArbiter = me?.role === "arbiter";
   const members = [...names].map(([user_id, name]) => ({ user_id, name }));
   const open = requests.filter((r) => r.status === "open");
   const closed = requests.filter((r) => r.status !== "open");
-  const current = defs.shown === defs.current ? defs.definitions : (await loadDefinitions()).definitions;
+  const current = currentDefs.definitions;
 
   return (
     <main>
       <h1>Rules and definitions</h1>
       <p className="muted">
         Definitions change only with all three approvals. Priors change only with both bettors and Shaun. Shaun can
-        recalibrate the other settings directly; every change is versioned and in the <Link href="/audit">audit log</Link>.
+        recalibrate the other settings directly; every change is versioned and in the <Link href="/audit/">audit log</Link>.
       </p>
 
       <section className="card stack">
         <div className="row spread">
           <h2>Definitions v{defs.shown}</h2>
-          {defs.shown !== defs.current && <Link href="/rules">Back to current (v{defs.current})</Link>}
+          {defs.shown !== defs.current && <Link href="/rules/">Back to current (v{defs.current})</Link>}
         </div>
         {defs.shown !== defs.current && (
           <p className="notice small">You are viewing an old version. It no longer applies.</p>
@@ -131,7 +136,7 @@ export default async function RulesPage({ searchParams }: { searchParams: Promis
           <ul className="small">
             {defs.versions.map((v) => (
               <li key={v.version}>
-                <Link href={`/rules?version=${v.version}`}>v{v.version}</Link> · {fmt(v.created_at)} · {v.change_log}
+                <Link href={`/rules/?version=${v.version}`}>v{v.version}</Link> · {fmt(v.created_at)} · {v.change_log}
               </li>
             ))}
           </ul>
