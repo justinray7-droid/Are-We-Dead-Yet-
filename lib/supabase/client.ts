@@ -1,10 +1,11 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { MEMBER_HEADER, MEMBER_STORAGE_KEY, parseMemberId } from "@/lib/identity.ts";
+import { projectUrl } from "@/lib/supabase/url.ts";
 
 // The browser talks to Supabase directly (a static app on GitHub Pages). The
 // URL and anon key are baked in at build time; the owner chose not to hide them.
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const URL = projectUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+const KEY = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").trim();
 
 export const isConfigured = URL !== "" && KEY !== "";
 
